@@ -1,0 +1,7 @@
+{
+  "name": "E-Buku Teks: Pengurusan Pintar",
+  "description": "Sistem pengurusan stok buku teks dan aktiviti sekolah yang memudahkan guru meminjam buku secara layan diri tanpa perlu kehadiran admin secara fizikal.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
