@@ -1,7 +1,5 @@
 {
-  "name": "E-Buku Teks: Pengurusan Pintar",
-  "description": "Sistem pengurusan stok buku teks dan aktiviti sekolah yang memudahkan guru meminjam buku secara layan diri tanpa perlu kehadiran admin secara fizikal.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "name": "E-SPBT PINTAR: Pengurusan Buku Teks",
+  "description": "Sistem pengurusan stok buku teks sekolah yang pantas, mudah, dan mesra guru.",
+  "requestFramePermissions": []
 }

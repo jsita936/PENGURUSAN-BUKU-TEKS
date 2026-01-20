@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Book, Transaction, UserType, TransactionStatus, ActionType, BookType, Member, AdminSettings, ResolutionMethod, ResolutionStatus } from './types';
 import { INITIAL_BOOKS, YEARS, CATEGORIES } from './constants';
@@ -34,7 +35,8 @@ import {
   User,
   Coins,
   CalendarDays,
-  TrendingUp
+  TrendingUp,
+  Printer
 } from 'lucide-react';
 
 type AuthView = 'landing' | 'guru_auth' | 'admin_auth' | 'setup' | 'main';
@@ -906,7 +908,12 @@ const App: React.FC = () => {
             <div className="bg-white rounded-[3rem] border-2 border-slate-100 shadow-sm overflow-hidden animate-in fade-in">
                <div className="p-10 border-b bg-slate-50 flex items-center justify-between">
                   <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Log Aktiviti Semasa</h3>
-                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white px-6 py-3 rounded-2xl border-2 border-slate-100">{transactions.length} Rekod</div>
+                  <div className="flex gap-4 items-center">
+                    <button onClick={() => window.print()} className="px-6 py-3 bg-white border-2 border-slate-100 text-indigo-600 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-50 transition shadow-sm">
+                      <Printer size={16} /> Cetak Laporan
+                    </button>
+                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest bg-white px-6 py-3 rounded-2xl border-2 border-slate-100">{transactions.length} Rekod</div>
+                  </div>
                </div>
                <div className="overflow-x-auto no-scrollbar">
                <table className="w-full text-left">
@@ -982,7 +989,7 @@ const App: React.FC = () => {
                 <div className="space-y-6">
                    <div className="relative"><label className="text-[9px] font-black uppercase text-slate-400 absolute left-6 top-3 tracking-widest">Judul Buku</label><input type="text" className="w-full px-6 pt-8 pb-4 rounded-3xl border-2 border-slate-100 bg-slate-50 font-black uppercase text-slate-900 outline-none focus:border-indigo-600 transition" value={newBook.title} onChange={(e) => setNewBook({...newBook, title: e.target.value.toUpperCase()})} placeholder="MASUKKAN TAJUK BUKU" /></div>
                    <div className="grid grid-cols-2 gap-4"><div className="relative"><label className="text-[9px] font-black uppercase text-slate-400 absolute left-6 top-3 tracking-widest">Kod Subjek</label><input type="text" className="w-full px-6 pt-8 pb-4 rounded-3xl border-2 border-slate-100 bg-slate-50 font-black uppercase text-slate-900 outline-none focus:border-indigo-600 transition" value={newBook.subject} onChange={(e) => setNewBook({...newBook, subject: e.target.value.toUpperCase()})} placeholder="KOD" /></div><div className="relative"><label className="text-[9px] font-black uppercase text-slate-400 absolute left-6 top-3 tracking-widest">Tahun</label><select className="w-full px-6 pt-8 pb-4 rounded-3xl border-2 border-slate-100 bg-slate-50 font-black text-slate-900 outline-none appearance-none focus:border-indigo-600 transition" value={newBook.year} onChange={(e) => setNewBook({...newBook, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y}>Tahun {y}</option>)}</select></div></div>
-                   <div className="grid grid-cols-2 gap-4"><div className="relative"><label className="text-[9px] font-black uppercase text-slate-400 absolute left-6 top-3 tracking-widest">Jenis Buku</label><select className="w-full px-6 pt-8 pb-4 rounded-3xl border-2 border-slate-100 bg-slate-50 font-black text-slate-900 outline-none appearance-none focus:border-indigo-600 transition" value={newBook.type} onChange={(e) => setNewBook({...newBook, type: e.target.value as BookType})}><option value="Buku Teks">Buku Teks</option><option value="Buku Aktiviti">Buku Aktiviti</option><option value="Buku Latihan">Buku Latihan</option><option value="Rujukan">Rujukan</option><option value="Lain-lain">Lain-lain</option></select></div><div className="relative"><label className="text-[9px] font-black uppercase text-slate-400 absolute left-6 top-3 tracking-widest">Harga Per Unit (RM)</label><input type="number" step="0.01" className="w-full px-6 pt-8 pb-4 rounded-3xl border-2 border-slate-100 bg-slate-50 font-black text-slate-900 outline-none focus:border-indigo-600 transition" value={newBook.price} onChange={(e) => setNewBook({...newBook, price: Number(e.target.value)})} /></div></div>
+                   <div className="grid grid-cols-2 gap-4"><div className="relative"><label className="text-[9px] font-black uppercase text-slate-400 absolute left-6 top-3 tracking-widest">Jenis Buku</label><select className="w-full px-6 pt-8 pb-4 rounded-3xl border-2 border-slate-100 bg-slate-50 font-black text-slate-900 outline-none appearance-none focus:border-indigo-600 transition" value={newBook.type} onChange={(e) => setNewBook({...newMember, type: e.target.value as BookType})}><option value="Buku Teks">Buku Teks</option><option value="Buku Aktiviti">Buku Aktiviti</option><option value="Buku Latihan">Buku Latihan</option><option value="Rujukan">Rujukan</option><option value="Lain-lain">Lain-lain</option></select></div><div className="relative"><label className="text-[9px] font-black uppercase text-slate-400 absolute left-6 top-3 tracking-widest">Harga Per Unit (RM)</label><input type="number" step="0.01" className="w-full px-6 pt-8 pb-4 rounded-3xl border-2 border-slate-100 bg-slate-50 font-black text-slate-900 outline-none focus:border-indigo-600 transition" value={newBook.price} onChange={(e) => setNewBook({...newBook, price: Number(e.target.value)})} /></div></div>
                    <div className="relative"><label className="text-[9px] font-black uppercase text-slate-400 absolute left-6 top-3 tracking-widest">Stok Permulaan</label><input type="number" className="w-full px-6 pt-8 pb-4 rounded-3xl border-2 border-slate-100 bg-slate-50 font-black text-slate-900 outline-none focus:border-indigo-600 transition" value={newBook.stock} onChange={(e) => setNewBook({...newBook, stock: Number(e.target.value)})} /></div>
                    <button onClick={handleAddNewBook} className="w-full py-6 bg-indigo-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-2xl hover:bg-indigo-700 transition active:scale-95">Sahkan Pendaftaran</button>
                 </div>
@@ -1013,7 +1020,7 @@ const App: React.FC = () => {
 
         {isAddingMember && (
           <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-             <div className="bg-white w-full max-md rounded-[3rem] p-10 shadow-2xl animate-in zoom-in">
+             <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl animate-in zoom-in">
                 <div className="flex justify-between items-center mb-8">
                    <h3 className="text-2xl font-black uppercase tracking-tighter">Daftar {newMember.type}</h3>
                    <button onClick={() => setIsAddingMember(false)} className="text-slate-400 hover:text-rose-500 transition"><X size={24}/></button>
