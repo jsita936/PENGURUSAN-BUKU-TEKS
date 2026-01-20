@@ -88,7 +88,7 @@ const App: React.FC = () => {
       try {
         const encodedData = hash.replace('#sync=', '');
         const decodedData = JSON.parse(decodeURIComponent(escape(atob(encodedData))));
-        if (confirm(`Data sekolah "${decodedData.s}" dikesan. Import data ini?`)) {
+        if (confirm(`Data sekolah "${decodedData.s}" dikesan. Import data ini ke peranti ini?`)) {
           const mappedSettings: AdminSettings = {
             schoolName: decodedData.s,
             adminId: decodedData.i,
