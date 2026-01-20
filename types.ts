@@ -1,7 +1,8 @@
-
-export type BookType = 'Buku Teks' | 'Buku Aktiviti';
+export type BookType = 'Buku Teks' | 'Buku Aktiviti' | 'Buku Latihan' | 'Rujukan' | 'Lain-lain';
 export type UserType = 'Guru' | 'Murid';
 export type TransactionStatus = 'Menunggu' | 'Berjaya' | 'Dipulangkan' | 'Rosak/Hilang';
+export type ResolutionStatus = 'Tertunggak' | 'Selesai';
+export type ResolutionMethod = 'Buku' | 'Tunai';
 export type ActionType = 'Pinjaman' | 'Pemulangan' | 'Pulang Rosak/Hilang' | 'Terima Stok' | 'Rekod Rosak' | 'Pelarasan Manual';
 
 export interface AdminSettings {
@@ -37,11 +38,13 @@ export interface Transaction {
   userType: UserType;
   quantity: number;
   timestamp: string;
-  createdAt: number; // Untuk sorting yang tepat
+  createdAt: number;
   status: TransactionStatus;
   action: ActionType;
   noPerolehan?: string; 
-  fineAmount?: number; 
+  fineAmount?: number;
+  resolutionStatus?: ResolutionStatus;
+  resolutionMethod?: ResolutionMethod;
 }
 
 export interface Notification {
