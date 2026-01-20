@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Book, Transaction, UserType, TransactionStatus, ActionType, BookType, Member, AdminSettings, ResolutionMethod, ResolutionStatus } from './types';
 import { INITIAL_BOOKS, YEARS, CATEGORIES } from './constants';
@@ -173,11 +172,10 @@ const App: React.FC = () => {
       if (!silent) alert(`Maaf, stok "${book.title}" tidak mencukupi.`);
       return;
     }
+    
+    // No Perolehan pop-up removed for a faster process as requested
     let noPerolehan = "";
-    if (action === 'Pinjaman' && !silent) {
-      const input = prompt(`No. Perolehan untuk ${targetUser}:`);
-      noPerolehan = input?.trim() || "";
-    }
+    
     let status: TransactionStatus = 'Berjaya';
     let fine = 0;
     let stockChange = (action === 'Pinjaman') ? -qty : qty;
