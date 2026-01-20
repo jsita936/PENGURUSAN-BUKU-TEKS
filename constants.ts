@@ -1,5 +1,4 @@
-
-import { Book } from './types';
+import { Book, BookType } from './types';
 
 const generateBooks = (): Book[] => {
   const books: Book[] = [];
@@ -57,4 +56,4 @@ const generateBooks = (): Book[] => {
 
 export const INITIAL_BOOKS: Book[] = generateBooks();
 export const YEARS = [1, 2, 3, 4, 5, 6];
-export const CATEGORIES: ('Buku Teks' | 'Buku Aktiviti')[] = ['Buku Teks', 'Buku Aktiviti'];
+export const CATEGORIES: BookType[] = ['Buku Teks', 'Buku Aktiviti', 'Buku Latihan', 'Rujukan', 'Lain-lain'];
