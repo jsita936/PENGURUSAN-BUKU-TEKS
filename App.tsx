@@ -81,7 +81,7 @@ const App: React.FC = () => {
   const [isEditingMemberName, setIsEditingMemberName] = useState(false);
   const [editedMemberName, setEditedMemberName] = useState('');
 
-  // --- Cloud Sync Logic (Compact Data Format) ---
+  // --- Cloud Sync Logic (Optimized for Short URLs) ---
   useEffect(() => {
     const hash = window.location.hash;
     if (hash && hash.startsWith('#sync=')) {
@@ -97,24 +97,39 @@ const App: React.FC = () => {
             isRegistered: true
           };
           
-          const mappedBooks: Book[] = (decodedData.b || []).map((arr: any) => ({
-            id: arr[0], title: arr[1], year: arr[2], type: arr[3], stock: arr[4], price: arr[5]
-          }));
+          // Reconstitute Books: Match standard IDs from initial books, else treat as custom
+          const syncedBooks: Book[] = (decodedData.b || []).map((arr: any) => {
+            if (arr.length === 2) { // Short format: [id, stock]
+              const base = INITIAL_BOOKS.find(ib => ib.id === arr[0]);
+              return base ? { ...base, stock: arr[1] } : null;
+            }
+            // Long format: [id, title, year, type, stock, price]
+            return { id: arr[0], title: arr[1], year: arr[2], type: arr[3], stock: arr[4], price: arr[5] };
+          }).filter(Boolean);
+
+          const syncedIds = new Set(syncedBooks.map(b => b.id));
+          const finalBooks = [
+            ...syncedBooks,
+            ...INITIAL_BOOKS.filter(ib => !syncedIds.has(ib.id))
+          ];
           
           const mappedMembers: Member[] = (decodedData.m || []).map((arr: any) => ({
-            id: arr[0], name: arr[1], type: arr[2], year: arr[3]
+            id: arr[0], 
+            name: arr[1], 
+            type: arr[2] === 0 ? 'Guru' : 'Murid', 
+            year: arr[3]
           }));
 
           setAdminSettings(mappedSettings);
-          setBooks(mappedBooks.length > 0 ? mappedBooks : INITIAL_BOOKS);
+          setBooks(finalBooks);
           setMembers(mappedMembers);
           
-          localStorage.setItem('spbt_books_data', JSON.stringify(mappedBooks.length > 0 ? mappedBooks : INITIAL_BOOKS));
+          localStorage.setItem('spbt_books_data', JSON.stringify(finalBooks));
           localStorage.setItem('spbt_members_data', JSON.stringify(mappedMembers));
           localStorage.setItem('spbt_admin_settings', JSON.stringify(mappedSettings));
           
           window.history.replaceState(null, "", window.location.pathname);
-          alert("Penyelarasan Berjaya!");
+          alert("Penyelarasan Pintar Berjaya!");
           window.location.reload();
         }
       } catch (e) {
@@ -152,17 +167,37 @@ const App: React.FC = () => {
 
   // --- Handlers ---
   const handleGenerateSyncLink = () => {
+    // Only send books that differ from initial state or are custom
+    const syncBooks = books.map(b => {
+      const initial = INITIAL_BOOKS.find(ib => ib.id === b.id);
+      if (initial) {
+        // Only include if stock has changed from default
+        return b.stock !== initial.stock ? [b.id, b.stock] : null;
+      }
+      // New custom books
+      return [b.id, b.title, b.year, b.type, b.stock, b.price];
+    }).filter(Boolean);
+
+    const syncMembers = members.map(m => [
+      m.id, 
+      m.name, 
+      m.type === 'Guru' ? 0 : 1, 
+      m.year
+    ]);
+
     const compactData = {
       s: adminSettings.schoolName,
       i: adminSettings.adminId,
       p: adminSettings.adminPass,
       n: adminSettings.adminName,
-      b: books.map(b => [b.id, b.title, b.year, b.type, b.stock, b.price]),
-      m: members.map(m => [m.id, m.name, m.type, m.year])
+      b: syncBooks,
+      m: syncMembers
     };
+    
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(compactData))));
     const shareUrl = `${window.location.origin}${window.location.pathname}#sync=${encoded}`;
-    navigator.clipboard.writeText(shareUrl).then(() => alert("PAUTAN SYNC DISALIN!"));
+    
+    navigator.clipboard.writeText(shareUrl).then(() => alert("PAUTAN SYNC DIPENDEKKAN & DISALIN!"));
   };
 
   const handleRegisterAdmin = (e: React.FormEvent) => {
