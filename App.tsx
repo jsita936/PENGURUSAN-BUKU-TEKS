@@ -1,16 +1,6 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { 
-  Book, 
-  Transaction, 
-  UserType, 
-  TransactionStatus, 
-  ActionType, 
-  BookType, 
-  Member, 
-  AdminSettings, 
-  ResolutionMethod, 
-  ResolutionStatus 
-} from './types';
+import { Book, Transaction, UserType, TransactionStatus, ActionType, BookType, Member, AdminSettings, ResolutionMethod, ResolutionStatus } from './types';
 import { INITIAL_BOOKS, YEARS } from './constants';
 import { getStockInsight } from './services/geminiService';
 import { 
@@ -36,43 +26,51 @@ import {
   Share2,
   RefreshCw,
   LogOut,
+  Wifi,
+  WifiOff,
   Search,
-  Wallet,
+  DollarSign,
   ShieldCheck,
-  Globe,
-  ShieldAlert,
-  Package
+  CloudLightning,
+  TrendingUp,
+  ArrowUpCircle,
+  RotateCcw,
+  Plus,
+  // Added missing icons Package and Wallet
+  Package,
+  Wallet
 } from 'lucide-react';
 
 type AuthView = 'landing' | 'guru_auth' | 'admin_auth' | 'setup' | 'main';
 
 const App: React.FC = () => {
-  // --- States Utama ---
+  // --- State Utama ---
   const [authView, setAuthView] = useState<AuthView>('landing');
   const [books, setBooks] = useState<Book[]>(INITIAL_BOOKS);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [activeTab, setActiveTab] = useState<'inventory' | 'history' | 'admin' | 'profile'>('inventory');
   const [inventoryView, setInventoryView] = useState<'Guru' | 'Murid'>('Guru');
-  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'inventori' | 'members' | 'damages' | 'system'>('overview');
+  const [adminSubTab, setAdminSubTab] = useState<'overview' | 'manage' | 'members' | 'damages' | 'session' | 'system'>('overview');
+  const [adminMemberView, setAdminMemberView] = useState<'Guru' | 'Murid'>('Guru');
+  const [selectedMemberYear, setSelectedMemberYear] = useState<number>(1);
   
   // --- Tetapan & Auth ---
   const [adminSettings, setAdminSettings] = useState<AdminSettings>({
     schoolName: '', adminName: 'ADMIN', adminId: '', adminPass: '', isRegistered: false
   });
+
   const [userName, setUserName] = useState('');
-  const [selectedGuruFromList, setSelectedGuruFromList] = useState('');
+  const [selectedGuruName, setSelectedGuruName] = useState('');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminIdInput, setAdminIdInput] = useState('');
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
 
   // --- UI States ---
   const [selectedYear, setSelectedYear] = useState<number>(1);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<'online' | 'offline' | 'verifying'>('verifying');
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
-
+  const [searchInLoan, setSearchInLoan] = useState('');
+  const [yearFilterInLoan, setYearFilterInLoan] = useState<number | 'Semua'>('Semua');
+  
   // --- Modal States ---
   const [isAddingBook, setIsAddingBook] = useState(false);
   const [isEditingBook, setIsEditingBook] = useState(false);
@@ -85,14 +83,19 @@ const App: React.FC = () => {
   const [bookToEdit, setBookToEdit] = useState<Book | null>(null);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<'online' | 'offline' | 'error' | 'verifying'>('verifying');
+  const [isInitialPullDone, setIsInitialPullDone] = useState(false);
   
   const [newBook, setNewBook] = useState<Partial<Book>>({ title: '', year: 1, type: 'Buku Teks', stock: 0, price: 0 });
   const [newMember, setNewMember] = useState<Partial<Member>>({ name: '', type: 'Guru', year: 1 });
+  const [isEditingMemberName, setIsEditingMemberName] = useState(false);
+  const [editedMemberName, setEditedMemberName] = useState('');
 
-  const syncKeyRef = useRef<string | null>(localStorage.getItem('spbt_cloud_sync_key'));
   const lastSyncTimestamp = useRef<number>(0);
+  const syncKeyRef = useRef<string | null>(localStorage.getItem('spbt_cloud_sync_key'));
 
-  // --- Cloud Sync Logic ---
+  // --- Cloud Sync Actions ---
   const pushToCloud = async (silent = false) => {
     const key = syncKeyRef.current;
     if (!key) return;
@@ -105,10 +108,10 @@ const App: React.FC = () => {
         i: adminSettings.adminId,
         p: adminSettings.adminPass,
         n: adminSettings.adminName,
-        r: adminSettings.isRegistered,
+        r: true, // Mark as registered when pushing
         b: books.map(b => [b.id, b.stock, b.price, b.title, b.year, b.type, b.subject]), 
         m: members.map(m => [m.id, m.name, m.type === 'Guru' ? 0 : 1, m.year]),
-        t: transactions.slice(0, 500),
+        t: transactions.slice(0, 300),
         v: v 
       };
       
@@ -118,11 +121,13 @@ const App: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) throw new Error("Sync Error");
+      if (!response.ok) throw new Error("Push failed");
       lastSyncTimestamp.current = v;
       setSyncStatus('online');
+      if (!silent) alert("Data berjaya diselaraskan!");
     } catch (e) {
-      setSyncStatus('offline');
+      console.error("Cloud Push Error:", e);
+      setSyncStatus('error');
     } finally {
       if (!silent) setIsSyncing(false);
     }
@@ -132,7 +137,7 @@ const App: React.FC = () => {
     const key = targetKey || syncKeyRef.current;
     if (!key) {
       setSyncStatus('offline');
-      setIsInitialLoad(false);
+      setIsInitialPullDone(true);
       return;
     }
     
@@ -145,9 +150,9 @@ const App: React.FC = () => {
       if (data && data.v && data.v >= lastSyncTimestamp.current) {
         setAdminSettings({
           schoolName: data.s || '',
-          adminName: data.n || 'ADMIN',
           adminId: data.i || '',
           adminPass: data.p || '',
+          adminName: data.n || 'ADMIN',
           isRegistered: data.r ?? true
         });
 
@@ -169,37 +174,66 @@ const App: React.FC = () => {
         syncKeyRef.current = key;
         localStorage.setItem('spbt_cloud_sync_key', key);
         setSyncStatus('online');
+
+        if (targetKey && !silent) {
+           setAuthView('landing');
+        }
       }
     } catch (e) {
-      setSyncStatus('offline');
+      console.error("Cloud Pull Error:", e);
+      setSyncStatus('error');
     } finally {
       if (!silent) setIsSyncing(false);
-      setIsInitialLoad(false);
+      setIsInitialPullDone(true);
     }
   };
 
+  // --- Effects ---
   useEffect(() => {
-    const keyFromHash = window.location.hash.includes('cloud=') ? window.location.hash.split('cloud=')[1] : null;
-    const key = keyFromHash || localStorage.getItem('spbt_cloud_sync_key');
-    
-    if (key) {
-      syncKeyRef.current = key;
-      pullFromCloud(key, false).then(() => {
-        const savedName = localStorage.getItem('spbt_user_name');
-        if (savedName) {
-           setUserName(savedName);
-           if (savedName === 'ADMIN') setIsAdminAuthenticated(true);
-           setAuthView('main');
-        }
-      });
-      const interval = setInterval(() => pullFromCloud(key, true), 8000);
-      return () => clearInterval(interval);
+    // Check for hash link first
+    const hash = window.location.hash;
+    let keyToUse = null;
+    if (hash.includes('cloud=')) {
+      keyToUse = hash.split('cloud=')[1];
     } else {
-      setIsInitialLoad(false);
+      keyToUse = localStorage.getItem('spbt_cloud_sync_key');
     }
+
+    if (keyToUse) {
+      syncKeyRef.current = keyToUse;
+      pullFromCloud(keyToUse, true);
+    } else {
+      setIsInitialPullDone(true);
+      setSyncStatus('offline');
+    }
+
+    // Auto refresh every 10s if online
+    const interval = setInterval(() => {
+      if (syncKeyRef.current) pullFromCloud(undefined, true);
+    }, 10000);
+
+    const savedName = localStorage.getItem('spbt_user_name');
+    if (savedName) {
+      setUserName(savedName);
+      if (savedName === 'ADMIN') setIsAdminAuthenticated(true);
+      setAuthView('main');
+    }
+
+    return () => clearInterval(interval);
   }, []);
 
   // --- Handlers ---
+  const handleGuruLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedGuruName) {
+      alert("Sila pilih nama anda.");
+      return;
+    }
+    setUserName(selectedGuruName);
+    localStorage.setItem('spbt_user_name', selectedGuruName);
+    setAuthView('main');
+  };
+
   const handleAdminAuth = (e: React.FormEvent) => {
     e.preventDefault();
     if (adminIdInput === adminSettings.adminId && adminPasswordInput === adminSettings.adminPass) {
@@ -213,109 +247,24 @@ const App: React.FC = () => {
     }
   };
 
-  const handleGuruLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedGuruFromList) {
-      alert("Sila pilih nama anda.");
-      return;
-    }
-    setUserName(selectedGuruFromList);
-    localStorage.setItem('spbt_user_name', selectedGuruFromList);
-    setAuthView('main');
-  };
-
-  const handleLogout = () => {
-    if (confirm("Adakah anda pasti ingin log keluar?")) {
-      localStorage.removeItem('spbt_user_name');
-      setIsAdminAuthenticated(false);
-      setUserName('');
-      setAuthView('landing');
-    }
-  };
-
-  const fetchAiInsight = async () => {
-    setIsAiLoading(true);
-    try {
-      const insight = await getStockInsight(books, transactions);
-      setAiInsight(insight || "Tiada analisa tersedia.");
-    } catch (err) {
-      setAiInsight("Ralat semasa mendapatkan analisa AI.");
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
-  const handleAddNewBook = () => {
-    if (!newBook.title) {
-      alert("Sila isi judul buku.");
-      return;
-    }
-    const book: Book = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: newBook.title.toUpperCase(),
-      year: newBook.year || 1,
-      type: (newBook.type as BookType) || 'Buku Teks',
-      stock: Number(newBook.stock) || 0,
-      subject: 'LAIN',
-      price: Number(newBook.price) || 0
-    };
-    setBooks(prev => [...prev, book]);
-    setIsAddingBook(false);
-    setNewBook({ title: '', year: 1, type: 'Buku Teks', stock: 0, price: 0 });
-    setTimeout(() => pushToCloud(true), 200);
-  };
-
-  const handleUpdateBook = () => {
-    if (!bookToEdit) return;
-    setBooks(prev => prev.map(b => b.id === bookToEdit.id ? (bookToEdit as Book) : b));
-    setIsEditingBook(false);
-    setBookToEdit(null);
-    setTimeout(() => pushToCloud(true), 200);
-  };
-
-  const handleAddMember = () => {
-    if (!newMember.name) {
-      alert("Sila isi nama ahli.");
-      return;
-    }
-    const member: Member = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: newMember.name.toUpperCase(),
-      type: (newMember.type as UserType) || 'Murid',
-      year: newMember.year
-    };
-    setMembers(prev => [...prev, member]);
-    setIsAddingMember(false);
-    setNewMember({ name: '', type: 'Guru', year: 1 });
-    setTimeout(() => pushToCloud(true), 200);
-  };
-
-  const getActiveLoans = useCallback((name: string) => {
-    const userTransactions = transactions.filter(t => t.userName === name);
-    const possession: Record<string, { count: number; lastTrans: Transaction }> = {};
-    
-    [...userTransactions].reverse().forEach(t => {
-      if (!possession[t.bookId]) possession[t.bookId] = { count: 0, lastTrans: t };
-      if (t.action === 'Pinjaman') possession[t.bookId].count += t.quantity;
-      else if (t.action === 'Pemulangan' || t.action === 'Pulang Rosak/Hilang') possession[t.bookId].count -= t.quantity;
-    });
-
-    return Object.values(possession).filter(p => p.count > 0).map(p => p.lastTrans);
-  }, [transactions]);
-
-  const handleAction = (bookId: string, action: ActionType, targetUser: string, targetType: UserType, qty: number = 1) => {
+  const handleAction = (bookId: string, action: ActionType, targetUser: string, targetType: UserType, qty: number = 1, silent: boolean = false) => {
     const book = books.find(b => b.id === bookId);
     if (!book) return;
     if (action === 'Pinjaman' && book.stock < qty) {
-      alert(`Stok ${book.title} tidak mencukupi.`);
+      if (!silent) alert(`Stok tidak mencukupi.`);
       return;
     }
     
-    let stockChange = (action === 'Pinjaman') ? -qty : (action === 'Pemulangan' ? qty : 0);
     let status: TransactionStatus = 'Berjaya';
+    let stockChange = (action === 'Pinjaman') ? -qty : qty;
     let resStatus: ResolutionStatus | undefined;
-    if (action === 'Pulang Rosak/Hilang') { status = 'Rosak/Hilang'; resStatus = 'Tertunggak'; }
 
+    if (action === 'Pulang Rosak/Hilang') {
+      status = 'Rosak/Hilang'; stockChange = 0; resStatus = 'Tertunggak';
+    }
+
+    const updatedBooks = books.map(b => b.id === bookId ? { ...b, stock: Math.max(0, b.stock + stockChange) } : b);
+    
     const newTrans: Transaction = {
       id: Math.random().toString(36).substr(2, 9),
       bookId, bookTitle: book.title, userName: targetUser, userType: targetType, quantity: qty,
@@ -323,52 +272,125 @@ const App: React.FC = () => {
       resolutionStatus: resStatus, fineAmount: action === 'Pulang Rosak/Hilang' ? book.price : 0
     };
 
-    setBooks(prev => prev.map(b => b.id === bookId ? { ...b, stock: Math.max(0, b.stock + stockChange) } : b));
+    setBooks(updatedBooks);
     setTransactions(prev => [newTrans, ...prev]);
-    setTimeout(() => pushToCloud(true), 200);
+    pushToCloud(true);
   };
 
   const handleResolveDamage = (transactionId: string, method: ResolutionMethod) => {
-    setTransactions(prev => prev.map(t => 
-      t.id === transactionId ? { ...t, resolutionStatus: 'Selesai', resolutionMethod: method } : t
-    ));
+    const trans = transactions.find(t => t.id === transactionId);
+    if (!trans) return;
+    if (method === 'Buku') setBooks(prev => prev.map(b => b.id === trans.bookId ? { ...b, stock: b.stock + 1 } : b));
+    setTransactions(prev => prev.map(t => t.id === transactionId ? { ...t, resolutionStatus: 'Selesai', resolutionMethod: method } : t));
     pushToCloud(true);
   };
 
   const handleGenerateSyncLink = async () => {
     if (!adminSettings.schoolName || !adminSettings.adminId) {
-      alert("Sila lengkapkan profil sekolah dahulu.");
+      alert("Sila lengkapkan Profil Admin dahulu.");
       return;
     }
-    let key = syncKeyRef.current;
-    if (!key) {
-      key = btoa(unescape(encodeURIComponent(`${adminSettings.schoolName}_${adminSettings.adminId}`.toLowerCase()))).replace(/[/+=]/g, '').substring(0, 10);
-      syncKeyRef.current = key;
-      localStorage.setItem('spbt_cloud_sync_key', key);
-    }
-    // Set isRegistered true manually before pushing if not already
-    const updatedSettings = { ...adminSettings, isRegistered: true };
-    setAdminSettings(updatedSettings);
+    const key = btoa(unescape(encodeURIComponent(`${adminSettings.schoolName}_${adminSettings.adminId}`.toLowerCase().replace(/\s+/g, '')))).replace(/[/+=]/g, '').substring(0, 10);
+    syncKeyRef.current = key;
+    localStorage.setItem('spbt_cloud_sync_key', key);
+    
+    // Ensure marked as registered
+    setAdminSettings(prev => ({ ...prev, isRegistered: true }));
     
     await pushToCloud();
     const shareUrl = `${window.location.origin}${window.location.pathname}#cloud=${key}`;
-    navigator.clipboard.writeText(shareUrl).then(() => alert("Pautan Cloud disalin! Sekolah kini berdaftar secara global. Guru-guru boleh menggunakan pautan ini terus tanpa perlu mendaftar semula."));
+    navigator.clipboard.writeText(shareUrl).then(() => alert("Pautan Cloud disalin! Sekolah ini kini boleh diakses terus tanpa pendaftaran semula."));
   };
 
-  // --- UI Logic ---
-  const filteredBooks = useMemo(() => {
-    return books.filter(b => {
-      const matchYear = b.year === selectedYear;
-      const matchSearch = b.title.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchYear && matchSearch;
-    }).sort((a,b) => a.title.localeCompare(b.title));
-  }, [books, selectedYear, searchQuery]);
+  const handleLogout = () => {
+    if (confirm("Adakah anda ingin log keluar?")) {
+      setUserName('');
+      setIsAdminAuthenticated(false);
+      localStorage.removeItem('spbt_user_name');
+      setAuthView('landing');
+    }
+  };
 
-  if (isInitialLoad) {
+  const fetchAiInsight = async () => {
+    setIsAiLoading(true);
+    const insight = await getStockInsight(books, transactions);
+    setAiInsight(insight || "Tiada analisa tersedia.");
+    setIsAiLoading(false);
+  };
+
+  const getActiveLoans = (name: string) => {
+    const userTrans = transactions.filter(t => t.userName === name);
+    const active: Transaction[] = [];
+    [...userTrans].sort((a,b) => a.createdAt - b.createdAt).forEach(t => {
+      if (t.action === 'Pinjaman') active.push(t);
+      else if (t.action === 'Pemulangan' || t.action === 'Pulang Rosak/Hilang') {
+        const idx = active.findIndex(a => a.bookId === t.bookId);
+        if (idx > -1) active.splice(idx, 1);
+      }
+    });
+    return active;
+  };
+
+  const handleAddNewBook = () => {
+    if (!newBook.title) return;
+    const book: Book = {
+      id: `book-${Math.random().toString(36).substr(2, 5)}`,
+      title: newBook.title.toUpperCase(),
+      year: newBook.year || 1,
+      type: (newBook.type as BookType) || 'Buku Teks',
+      stock: Number(newBook.stock) || 0,
+      subject: 'AM',
+      price: Number(newBook.price) || 0
+    };
+    setBooks(prev => [...prev, book]);
+    setIsAddingBook(false);
+    setNewBook({ title: '', year: 1, type: 'Buku Teks', stock: 0, price: 0 });
+    pushToCloud(true);
+  };
+
+  const handleUpdateBook = () => {
+    if (!bookToEdit) return;
+    setBooks(prev => prev.map(b => b.id === bookToEdit.id ? (bookToEdit as Book) : b));
+    setIsEditingBook(false);
+    pushToCloud(true);
+  };
+
+  // Fixed Error on line 1082: Added implementation for handleUpdateMemberName
+  const handleUpdateMemberName = () => {
+    if (!selectedMemberDetail || !editedMemberName) return;
+    const upperName = editedMemberName.toUpperCase();
+    setMembers(prev => prev.map(m => m.id === selectedMemberDetail.id ? { ...m, name: upperName } : m));
+    setSelectedMemberDetail(prev => prev ? { ...prev, name: upperName } : null);
+    setIsEditingMemberName(false);
+    pushToCloud(true);
+  };
+
+  const handleAddMember = () => {
+    if (!newMember.name) return;
+    const member: Member = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: newMember.name.toUpperCase(),
+      type: (newMember.type as UserType) || 'Guru',
+      year: newMember.type === 'Murid' ? newMember.year : undefined
+    };
+    setMembers(prev => [...prev, member]);
+    setIsAddingMember(false);
+    setNewMember({ name: '', type: 'Guru', year: 1 });
+    pushToCloud(true);
+  };
+
+  // --- Filtering ---
+  const registeredGurus = useMemo(() => {
+    return members.filter(m => m.type === 'Guru').sort((a,b) => a.name.localeCompare(b.name));
+  }, [members]);
+
+  // --- Initial Loading Screen ---
+  if (!isInitialPullDone) {
     return (
-      <div className="min-h-screen bg-indigo-950 flex flex-col items-center justify-center p-6 text-white font-black uppercase tracking-widest text-xs">
-        <Library size={48} className="animate-bounce mb-6 text-indigo-400" />
-        Sila Tunggu... Mengesahkan Data Cloud Sekolah...
+      <div className="min-h-screen bg-indigo-950 flex flex-col items-center justify-center p-6 text-white text-center">
+         <Library size={64} className="animate-bounce mb-6 text-indigo-400" />
+         <h1 className="text-2xl font-black uppercase tracking-widest italic">E-SPBT PINTAR</h1>
+         <p className="text-indigo-300 text-xs mt-2 uppercase font-bold tracking-widest">Memuatkan data sekolah...</p>
       </div>
     );
   }
@@ -376,56 +398,51 @@ const App: React.FC = () => {
   // --- Auth Screens ---
   if (authView === 'landing') {
     return (
-      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center justify-center p-6 text-white overflow-hidden relative">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 blur-[120px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/20 blur-[120px] rounded-full" />
+      <div className="min-h-screen bg-indigo-950 flex flex-col items-center justify-center p-6 text-white font-['Plus_Jakarta_Sans'] overflow-hidden relative">
+        {/* Abstract Background Elements */}
+        <div className="absolute top-[-10%] left-[-10%] w-64 h-64 bg-indigo-600/20 blur-3xl rounded-full" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-emerald-600/10 blur-3xl rounded-full" />
         
-        <div className="max-w-4xl w-full text-center space-y-12 z-10">
-          <div className="space-y-6 animate-in fade-in duration-1000">
-             <div className="w-28 h-28 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-[0_0_50px_rgba(79,70,229,0.4)] border-4 border-white/10">
-               <Library size={56} />
-             </div>
-             <div>
-                <h1 className="text-7xl font-black tracking-tighter uppercase italic leading-none">E-SPBT PINTAR</h1>
-                <p className="text-indigo-300 font-bold uppercase tracking-[0.3em] text-xs mt-3">Sistem Pengurusan Buku Teks Versi 2.1</p>
-             </div>
-             <div className="flex items-center justify-center gap-3 bg-white/5 w-fit mx-auto px-5 py-2 rounded-full border border-white/10 backdrop-blur-sm">
-                <div className={`w-2 h-2 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-                <p className="text-[10px] font-black uppercase tracking-widest">{syncStatus === 'online' ? (adminSettings.schoolName || 'CLOUD AKTIF') : 'MOD OFFLINE'}</p>
-             </div>
-             {adminSettings.schoolName && (
-               <p className="text-xl font-black uppercase text-emerald-400 italic tracking-tighter">{adminSettings.schoolName}</p>
-             )}
+        <div className="max-w-4xl w-full text-center space-y-10 animate-in fade-in duration-700 z-10">
+          <div className="space-y-4">
+            <div className="w-24 h-24 bg-indigo-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl border-4 border-indigo-400">
+              <Library size={48} />
+            </div>
+            <div>
+              <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase italic leading-none">E-SPBT PINTAR</h1>
+              <p className="text-indigo-300 font-bold uppercase tracking-[0.3em] text-[10px] mt-4">Sistem Pengurusan Buku Teks Versi 2.1</p>
+            </div>
+            
+            {adminSettings.schoolName && (
+               <div className="mt-8 px-6 py-3 bg-white/5 border border-white/10 rounded-full inline-block backdrop-blur-sm shadow-xl">
+                 <p className="text-emerald-400 font-black uppercase tracking-widest text-sm">{adminSettings.schoolName}</p>
+               </div>
+            )}
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl mx-auto w-full animate-in slide-in-from-bottom-12">
-            <button 
-              onClick={() => adminSettings.isRegistered ? setAuthView('admin_auth') : setAuthView('setup')} 
-              className="bg-white/5 backdrop-blur-xl border-2 border-white/10 p-12 rounded-[3.5rem] text-left hover:bg-white/10 transition-all group shadow-2xl hover:border-indigo-500/50"
-            >
-              <div className="w-12 h-12 bg-indigo-600/20 rounded-2xl flex items-center justify-center mb-6 text-indigo-400 group-hover:scale-110 transition">
-                <Lock size={28} />
-              </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl mx-auto w-full pt-6">
+            <button onClick={() => adminSettings.isRegistered ? setAuthView('admin_auth') : setAuthView('setup')} className="bg-white/10 border-2 border-white/10 p-10 rounded-[3.5rem] text-left hover:bg-white/20 transition group border-indigo-400/30 backdrop-blur-md shadow-2xl">
+              <Lock size={32} className="mb-4 text-indigo-400" />
               <h3 className="text-2xl font-black uppercase text-white">{adminSettings.isRegistered ? 'Portal Admin' : 'Daftar Admin'}</h3>
-              <p className="text-indigo-200/60 text-sm mt-2">Urus stok, daftar guru & kunci keselamatan pangkalan data.</p>
+              <p className="text-indigo-200 text-sm mt-1">Urus stok & pangkalan data cloud.</p>
               <div className="mt-10 flex items-center gap-2 text-indigo-400 font-black text-xs uppercase tracking-widest">
                 MASUK <ArrowRight size={16} className="group-hover:translate-x-2 transition" />
               </div>
             </button>
-
-            <button 
-              onClick={() => setAuthView('guru_auth')} 
-              className="bg-white/5 backdrop-blur-xl border-2 border-white/10 p-12 rounded-[3.5rem] text-left hover:bg-white/10 transition-all group shadow-2xl hover:border-emerald-500/50"
-            >
-              <div className="w-12 h-12 bg-emerald-600/20 rounded-2xl flex items-center justify-center mb-6 text-emerald-400 group-hover:scale-110 transition">
-                <UserCircle size={28} />
-              </div>
-              <h3 className="text-2xl font-black uppercase text-white">Portal Guru</h3>
-              <p className="text-indigo-200/60 text-sm mt-2">Pilih nama anda untuk mula meminjam atau memulangkan buku.</p>
+            <button onClick={() => setAuthView('guru_auth')} className="bg-white/10 border-2 border-white/10 p-10 rounded-[3.5rem] text-left hover:bg-white/20 transition group border-emerald-400/30 backdrop-blur-md shadow-2xl">
+              <UserCircle size={32} className="mb-4 text-emerald-400" />
+              <h3 className="text-2xl font-black uppercase text-white">Log Masuk Guru</h3>
+              <p className="text-indigo-200 text-sm mt-1">Hanya guru berdaftar dibenarkan.</p>
               <div className="mt-10 flex items-center gap-2 text-emerald-400 font-black text-xs uppercase tracking-widest">
                 MASUK <ArrowRight size={16} className="group-hover:translate-x-2 transition" />
               </div>
             </button>
+          </div>
+          
+          <div className="flex items-center justify-center gap-4 text-white/40 font-black text-[9px] uppercase tracking-widest pt-8">
+             <div className="flex items-center gap-1.5"><Wifi size={12} className={syncStatus === 'online' ? 'text-emerald-500' : ''} /> <span>Cloud Status: {syncStatus}</span></div>
+             <div className="w-1 h-1 bg-white/20 rounded-full" />
+             <span>SPBT-Digital RM © 2024</span>
           </div>
         </div>
       </div>
@@ -435,74 +452,58 @@ const App: React.FC = () => {
   if (['setup', 'admin_auth', 'guru_auth'].includes(authView)) {
     const isGuru = authView === 'guru_auth';
     const isSetup = authView === 'setup';
-    const registeredGurus = members.filter(m => m.type === 'Guru').sort((a,b) => a.name.localeCompare(b.name));
-
     return (
-      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-6">
-        <div className="bg-white p-12 rounded-[4rem] shadow-[0_0_100px_rgba(0,0,0,0.4)] w-full max-w-md border-b-[12px] border-indigo-600 animate-in zoom-in duration-300">
-          <div className="text-center mb-10">
+      <div className="min-h-screen bg-indigo-950 flex items-center justify-center p-6">
+        <div className="bg-white p-12 rounded-[4rem] shadow-[0_30px_100px_rgba(0,0,0,0.5)] w-full max-w-md text-center border-b-[12px] border-indigo-600 animate-in zoom-in duration-300">
+          <div className="mb-10">
              <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-4 border-2 border-indigo-100">
                {isGuru ? <UserCircle size={32} /> : <ShieldCheck size={32} />}
              </div>
-             <h3 className="text-3xl font-black text-[#0f172a] uppercase tracking-tighter leading-tight italic">
-               {isSetup ? 'DAFTAR SEKOLAH' : isGuru ? 'LOG MASUK GURU' : 'PENGESAHAN ADMIN'}
+             <h3 className="text-3xl font-black text-indigo-950 uppercase tracking-tighter leading-tight italic">
+               {isSetup ? 'PENDAFTARAN' : isGuru ? 'LOG MASUK GURU' : 'AKSES ADMIN'}
              </h3>
-             {adminSettings.schoolName && !isSetup && (
-               <p className="text-xs font-black text-indigo-600 uppercase mt-2">{adminSettings.schoolName}</p>
-             )}
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 italic">Sila sahkan identiti anda</p>
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-2">Sila sahkan identiti untuk sekolah ini</p>
           </div>
 
           <form onSubmit={isGuru ? handleGuruLogin : (isSetup ? (e) => { e.preventDefault(); setAdminSettings({...adminSettings, isRegistered: true}); setAuthView('admin_auth'); } : handleAdminAuth)} className="space-y-6">
             {isSetup ? (
               <div className="space-y-4">
-                <div className="relative">
-                   <label className="text-[8px] font-black text-indigo-400 uppercase absolute top-2 left-6">Nama Sekolah</label>
-                   <input type="text" placeholder="CONTOH: SK PINTAR" required className="w-full px-6 pt-7 pb-3 rounded-[1.5rem] border-2 bg-slate-50 font-black uppercase text-indigo-950 outline-none focus:border-indigo-600" value={adminSettings.schoolName} onChange={(e) => setAdminSettings({...adminSettings, schoolName: e.target.value.toUpperCase()})} />
-                </div>
-                <div className="relative">
-                   <label className="text-[8px] font-black text-indigo-400 uppercase absolute top-2 left-6">ID Admin Pilihan</label>
-                   <input type="text" placeholder="ID UNTUK LOGIN" required className="w-full px-6 pt-7 pb-3 rounded-[1.5rem] border-2 bg-slate-50 font-black uppercase text-indigo-950 outline-none focus:border-indigo-600" value={adminSettings.adminId} onChange={(e) => setAdminSettings({...adminSettings, adminId: e.target.value})} />
-                </div>
-                <div className="relative">
-                   <label className="text-[8px] font-black text-indigo-400 uppercase absolute top-2 left-6">Katalaluan</label>
-                   <input type="password" placeholder="PASSWORD" required className="w-full px-6 pt-7 pb-3 rounded-[1.5rem] border-2 bg-slate-50 font-black text-indigo-950 outline-none focus:border-indigo-600" value={adminSettings.adminPass} onChange={(e) => setAdminSettings({...adminSettings, adminPass: e.target.value})} />
-                </div>
+                <input type="text" required className="w-full px-7 py-5 rounded-3xl border-2 bg-slate-50 font-black uppercase text-indigo-900 focus:border-indigo-600 outline-none" placeholder="NAMA SEKOLAH" value={adminSettings.schoolName} onChange={(e) => setAdminSettings({...adminSettings, schoolName: e.target.value.toUpperCase()})} />
+                <input type="text" required className="w-full px-7 py-5 rounded-3xl border-2 bg-slate-50 font-black uppercase text-indigo-900 focus:border-indigo-600 outline-none" placeholder="ID LOGIN ADMIN" value={adminSettings.adminId} onChange={(e) => setAdminSettings({...adminSettings, adminId: e.target.value})} />
+                <input type="password" required className="w-full px-7 py-5 rounded-3xl border-2 bg-slate-50 font-black text-indigo-900 focus:border-indigo-600 outline-none" placeholder="KATA LALUAN" value={adminSettings.adminPass} onChange={(e) => setAdminSettings({...adminSettings, adminPass: e.target.value})} />
               </div>
             ) : isGuru ? (
               <div className="space-y-4">
-                <div className="relative">
-                   <label className="text-[10px] font-black text-indigo-400 uppercase absolute top-2 left-6">Pilih Nama Anda</label>
-                   <select required className="w-full px-6 pt-7 pb-3 rounded-[1.5rem] border-2 bg-slate-50 font-black uppercase text-indigo-950 outline-none focus:border-indigo-600 appearance-none shadow-inner" value={selectedGuruFromList} onChange={(e) => setSelectedGuruFromList(e.target.value)}>
-                      <option value="">-- SILA PILIH --</option>
+                 <div className="relative group">
+                    <select 
+                      required 
+                      className="w-full px-7 py-5 rounded-3xl border-2 bg-slate-50 font-black uppercase text-indigo-950 outline-none focus:border-indigo-600 appearance-none shadow-inner" 
+                      value={selectedGuruName} 
+                      onChange={(e) => setSelectedGuruName(e.target.value)}
+                    >
+                      <option value="">-- PILIH NAMA ANDA --</option>
                       {registeredGurus.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
-                   </select>
-                   <ChevronDown size={20} className="absolute right-6 top-[55%] text-indigo-300 pointer-events-none" />
-                </div>
-                {registeredGurus.length === 0 && (
-                  <div className="p-5 bg-rose-50 border-2 border-rose-100 rounded-3xl flex items-center gap-4 animate-pulse">
-                    <ShieldAlert className="text-rose-500 shrink-0" size={24} />
-                    <p className="text-[10px] font-black text-rose-600 uppercase leading-relaxed italic">Amaran: Tiada guru berdaftar dikesan. Admin perlu daftar guru di Panel Admin terlebih dahulu.</p>
-                  </div>
-                )}
+                    </select>
+                    <ChevronDown size={20} className="absolute right-7 top-1/2 -translate-y-1/2 text-indigo-400 pointer-events-none" />
+                 </div>
+                 {registeredGurus.length === 0 && (
+                   <div className="p-5 bg-rose-50 border-2 border-rose-100 rounded-3xl flex items-center gap-3">
+                      <AlertTriangle className="text-rose-500 shrink-0" size={24} />
+                      <p className="text-[10px] font-black text-rose-600 uppercase text-left leading-relaxed italic">Amaran: Tiada guru berdaftar dikesan. Sila minta Admin untuk mendaftarkan nama anda dalam sistem terlebih dahulu.</p>
+                   </div>
+                 )}
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="relative">
-                   <label className="text-[8px] font-black text-indigo-400 uppercase absolute top-2 left-6">ID Pentadbir</label>
-                   <input type="text" required className="w-full px-6 pt-7 pb-3 rounded-[1.5rem] border-2 bg-slate-50 font-black uppercase text-indigo-950 outline-none focus:border-indigo-600" value={adminIdInput} onChange={(e) => setAdminIdInput(e.target.value)} />
-                </div>
-                <div className="relative">
-                   <label className="text-[8px] font-black text-indigo-400 uppercase absolute top-2 left-6">Kata Laluan</label>
-                   <input type="password" required className="w-full px-6 pt-7 pb-3 rounded-[1.5rem] border-2 bg-slate-50 font-black text-indigo-950 outline-none focus:border-indigo-600" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} />
-                </div>
+                <input type="text" required className="w-full px-7 py-5 rounded-3xl border-2 bg-slate-50 font-black uppercase text-indigo-900 focus:border-indigo-600 outline-none" placeholder="ID ADMIN" value={adminIdInput} onChange={(e) => setAdminIdInput(e.target.value)} />
+                <input type="password" required className="w-full px-7 py-5 rounded-3xl border-2 bg-slate-50 font-black text-indigo-900 focus:border-indigo-600 outline-none" placeholder="KATA LALUAN" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} />
               </div>
             )}
             
             <button 
               type="submit" 
               disabled={isGuru && registeredGurus.length === 0}
-              className="w-full py-6 bg-indigo-600 text-white font-black rounded-[2rem] hover:bg-indigo-700 transition-all uppercase shadow-[0_15px_30px_rgba(79,70,229,0.3)] disabled:opacity-30 disabled:cursor-not-allowed border-b-8 border-indigo-800 active:translate-y-1 active:border-b-0"
+              className="w-full py-6 bg-indigo-600 text-white font-black rounded-[2.5rem] hover:bg-indigo-700 transition-all uppercase shadow-[0_15px_35px_rgba(79,70,229,0.4)] disabled:opacity-30 disabled:cursor-not-allowed border-b-8 border-indigo-900 active:translate-y-1 active:border-b-0"
             >
               PENGESAHAN MASUK
             </button>
@@ -514,11 +515,9 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#f1f5f9] text-[#0f172a] overflow-hidden font-['Plus_Jakarta_Sans']">
-      {/* Sidebar Desktop */}
-      <nav className="hidden md:flex w-80 bg-[#0f172a] text-white flex-col shrink-0 shadow-2xl z-30 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#f1f5f9] text-indigo-950 font-['Plus_Jakarta_Sans']">
+      <nav className="hidden md:flex w-80 bg-indigo-950 text-white flex-col shrink-0 shadow-2xl z-30 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-600/10 blur-3xl rounded-full" />
-        
         <div className="p-10 border-b border-white/5 flex items-center gap-4 relative">
           <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-600/20">
             <Library size={28} />
@@ -538,7 +537,7 @@ const App: React.FC = () => {
             <button 
               key={item.id}
               onClick={() => setActiveTab(item.id as any)} 
-              className={`w-full flex items-center gap-4 px-6 py-5 rounded-[1.5rem] transition-all relative group ${activeTab === item.id ? 'bg-indigo-600 text-white font-black shadow-xl shadow-indigo-600/20 scale-[1.02]' : 'text-indigo-200/40 hover:text-white hover:bg-white/5 font-bold'}`}
+              className={`w-full flex items-center gap-4 px-6 py-5 rounded-[1.8rem] transition-all relative group ${activeTab === item.id ? 'bg-indigo-600 text-white font-black shadow-xl shadow-indigo-600/20 scale-[1.02]' : 'text-indigo-200/40 hover:text-white hover:bg-white/5 font-bold'}`}
             >
               <item.icon size={22} className={activeTab === item.id ? 'animate-pulse' : ''} />
               <span className="text-[11px] uppercase tracking-widest">{item.label}</span>
@@ -550,7 +549,7 @@ const App: React.FC = () => {
             <div className="pt-8 mt-8 border-t border-white/5">
               <button 
                 onClick={() => { setActiveTab('admin'); setAdminSubTab('overview'); }} 
-                className={`w-full flex items-center gap-4 px-6 py-5 rounded-[1.5rem] transition-all group ${activeTab === 'admin' ? 'bg-emerald-600 text-white font-black shadow-xl shadow-emerald-600/20 scale-[1.02]' : 'text-indigo-200/40 hover:text-white hover:bg-white/5 font-bold'}`}
+                className={`w-full flex items-center gap-4 px-6 py-5 rounded-[1.8rem] transition-all group ${activeTab === 'admin' ? 'bg-emerald-600 text-white font-black shadow-xl shadow-emerald-600/20 scale-[1.02]' : 'text-indigo-200/40 hover:text-white hover:bg-white/5 font-bold'}`}
               >
                 <LayoutDashboard size={22} />
                 <span className="text-[11px] uppercase tracking-widest">PANEL ADMIN</span>
@@ -559,22 +558,12 @@ const App: React.FC = () => {
           )}
         </div>
 
-        <div className="p-8 border-t border-white/5 bg-black/40 backdrop-blur-md relative">
-          <div className="flex items-center gap-4 mb-6">
-             <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center text-indigo-300 font-black">{userName.charAt(0)}</div>
-             <div className="overflow-hidden">
-                <p className="text-[10px] font-black uppercase text-white truncate italic">{userName}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                  <p className="text-[8px] font-black uppercase text-indigo-400 tracking-widest">{syncStatus}</p>
-                </div>
-             </div>
-          </div>
+        <div className="p-8 border-t border-white/5 bg-black/40 backdrop-blur-md">
+          <p className="text-[10px] font-black uppercase mb-4 text-indigo-300 truncate tracking-widest italic">{userName}</p>
           <button onClick={handleLogout} className="w-full py-4 bg-rose-500/10 text-rose-400 rounded-2xl text-[10px] font-black border border-rose-500/20 uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all active:scale-95 shadow-lg">LOG KELUAR</button>
         </div>
       </nav>
 
-      {/* Main Container */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-24 bg-white border-b border-slate-200 px-8 md:px-12 flex items-center justify-between shrink-0 shadow-sm z-20">
           <div className="flex items-center gap-5 text-left">
@@ -582,18 +571,18 @@ const App: React.FC = () => {
                 <Library size={20} />
              </div>
              <div>
-                <h2 className="text-xl font-black text-[#0f172a] uppercase tracking-tighter italic">
-                  {activeTab === 'inventory' ? 'INVENTORI BUKU' : activeTab === 'admin' ? `ADMIN > ${adminSubTab.toUpperCase()}` : activeTab.toUpperCase()}
+                <h2 className="text-xl font-black text-indigo-900 uppercase tracking-tighter italic">
+                  {activeTab === 'inventory' ? 'INVENTORI BUKU' : activeTab === 'admin' ? `PENTADBIR > ${adminSubTab.toUpperCase()}` : activeTab.toUpperCase()}
                 </h2>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-0.5 truncate max-w-[150px] sm:max-w-none">{adminSettings.schoolName || 'SISTEM SPBT'}</p>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mt-0.5 truncate max-w-[120px] sm:max-w-none">{adminSettings.schoolName || 'SISTEM SPBT'}</p>
              </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-slate-50 border-2 border-slate-100 rounded-full">
-               <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-               <span className="text-[9px] font-black uppercase text-slate-500 tracking-widest">{syncStatus === 'online' ? 'Cloud Online' : 'Cloud Offline'}</span>
+          <div className="flex items-center gap-4">
+            <div className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-full border ${syncStatus === 'online' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'}`}>
+               <div className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+               <span className="text-[9px] font-black uppercase tracking-widest">{syncStatus === 'online' ? 'Online' : syncStatus === 'verifying' ? 'Mengesahkan...' : 'Offline'}</span>
             </div>
-            <button onClick={() => pullFromCloud(undefined, false)} className={`p-3.5 bg-white border-2 border-slate-100 rounded-2xl transition-all shadow-sm ${isSyncing ? 'animate-spin border-indigo-600 text-indigo-600' : 'text-slate-400 hover:border-indigo-600 hover:text-indigo-600'}`} title="Kemaskini Pangkalan Data"><RefreshCw size={20} /></button>
+            <button onClick={() => pullFromCloud(undefined, false)} className={`p-3.5 bg-white border-2 border-slate-100 rounded-2xl transition-all shadow-sm ${isSyncing ? 'animate-spin border-indigo-600 text-indigo-600' : 'text-slate-400 hover:border-indigo-600 hover:text-indigo-600'}`} title="Kemas Kini Data"><RefreshCw size={20} /></button>
             <button onClick={handleLogout} className="md:hidden p-3.5 bg-rose-50 text-rose-600 border-2 border-rose-100 rounded-2xl hover:bg-rose-600 hover:text-white transition-all shadow-sm active:scale-90" title="Log Keluar">
               <LogOut size={20} />
             </button>
@@ -602,11 +591,11 @@ const App: React.FC = () => {
 
         <div className="flex-1 overflow-y-auto p-6 md:p-12 pb-32 bg-[#f8fafc] scroll-smooth no-scrollbar">
           {activeTab === 'inventory' && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6">
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-6 duration-500">
               <div className="flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between">
                 <div className="bg-white p-2 rounded-[2rem] border-2 border-slate-200 shadow-sm flex gap-2">
                   <button onClick={() => setInventoryView('Guru')} className={`px-10 py-4 rounded-2xl font-black text-[11px] uppercase transition-all ${inventoryView === 'Guru' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 scale-105' : 'text-slate-400 hover:bg-slate-50'}`}>STAF GURU</button>
-                  <button onClick={() => setInventoryView('Murid')} className={`px-10 py-4 rounded-2xl font-black text-[11px] uppercase transition-all ${inventoryView === 'Murid' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 scale-105' : 'text-slate-400 hover:bg-slate-50'}`}>URUS MURID</button>
+                  <button onClick={() => setInventoryView('Murid')} className={`px-10 py-4 rounded-2xl font-black text-[11px] uppercase transition-all ${inventoryView === 'Murid' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20 scale-105' : 'text-slate-400 hover:bg-slate-50'}`}>PENGURUSAN MURID</button>
                 </div>
 
                 <div className="w-full lg:max-w-md relative group">
@@ -615,8 +604,8 @@ const App: React.FC = () => {
                     type="text" 
                     placeholder="CARI JUDUL BUKU..." 
                     className="w-full pl-14 pr-8 py-5 bg-white rounded-[1.8rem] border-2 border-slate-200 font-black text-[11px] outline-none focus:border-indigo-600 shadow-sm focus:shadow-xl transition-all uppercase"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    value={searchInLoan}
+                    onChange={(e) => setSearchInLoan(e.target.value.toUpperCase())}
                    />
                 </div>
               </div>
@@ -634,16 +623,16 @@ const App: React.FC = () => {
                   ))}
               </div>
 
-              {inventoryView === 'Guru' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {filteredBooks.map(book => {
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {inventoryView === 'Guru' ? (
+                  books.filter(b => b.year === selectedYear && b.title.includes(searchInLoan)).map(book => {
                     const hasBorrowed = getActiveLoans(userName).some(l => l.bookId === book.id);
                     return (
                       <div key={book.id} className="bg-white border-2 border-slate-100 rounded-[3rem] p-8 shadow-sm hover:shadow-2xl hover:border-indigo-400 transition-all group relative flex flex-col justify-between text-left">
                         <div>
                           <div className="flex justify-between items-start mb-6">
                              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-black text-xs border-2 border-indigo-100">T{book.year}</div>
-                             <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-4 py-1.5 rounded-full border border-indigo-100 shadow-sm">RM{book.price.toFixed(2)}</span>
+                             <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 px-4 py-1.5 rounded-full border border-emerald-100">RM{book.price.toFixed(2)}</span>
                           </div>
                           <h4 className="font-black text-indigo-950 text-[13px] uppercase h-12 overflow-hidden leading-tight group-hover:text-indigo-600 mb-6">{book.title}</h4>
                           <div className="bg-slate-50 rounded-3xl p-5 mb-8 flex justify-between items-center shadow-inner">
@@ -657,24 +646,15 @@ const App: React.FC = () => {
                         </div>
                       </div>
                     );
-                  })}
-                  {filteredBooks.length === 0 && (
-                    <div className="col-span-full py-32 text-center bg-white rounded-[4rem] border-4 border-dashed border-slate-200">
-                       <Package size={48} className="mx-auto text-slate-200 mb-4" />
-                       <p className="text-sm font-black text-slate-300 uppercase italic tracking-[0.2em]">Tiada buku dijumpai untuk Tahun {selectedYear}</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {members.filter(m => m.type === 'Murid' && m.year === selectedYear).sort((a,b) => a.name.localeCompare(b.name)).map(student => (
+                  })
+                ) : (
+                  members.filter(m => m.type === 'Murid' && m.year === selectedYear && m.name.includes(searchInLoan)).sort((a,b) => a.name.localeCompare(b.name)).map(student => (
                     <div 
                       key={student.id} 
-                      onClick={() => { setSelectedMemberDetail(student); setIsMemberDetailOpen(true); }} 
+                      onClick={() => { setSelectedMemberDetail(student); setEditedMemberName(student.name); setIsEditingMemberName(false); setIsMemberDetailOpen(true); }} 
                       className="bg-white rounded-[3rem] border-2 border-slate-100 p-8 flex justify-between items-center group cursor-pointer hover:border-indigo-400 hover:shadow-2xl transition-all shadow-sm relative overflow-hidden"
                     >
                       <div className="absolute right-[-20px] top-[-20px] w-24 h-24 bg-indigo-50 rounded-full group-hover:scale-150 transition-all duration-700" />
-                      
                       <div className="flex items-center gap-5 relative z-10 text-left">
                         <div className="w-16 h-16 rounded-[1.5rem] bg-indigo-600 text-white flex items-center justify-center font-black text-2xl shadow-xl shadow-indigo-600/20 group-hover:rotate-6 transition-all">{student.name.charAt(0)}</div>
                         <div className="flex-1 overflow-hidden">
@@ -689,15 +669,15 @@ const App: React.FC = () => {
                         <ChevronRight size={20} />
                       </div>
                     </div>
-                  ))}
-                  {members.filter(m => m.type === 'Murid' && m.year === selectedYear).length === 0 && (
-                    <div className="col-span-full py-32 text-center bg-white rounded-[4rem] border-4 border-dashed border-slate-200">
-                       <UserCircle size={48} className="mx-auto text-slate-200 mb-4" />
-                       <p className="text-sm font-black text-slate-300 uppercase italic tracking-[0.2em]">Belum ada murid didaftarkan</p>
-                    </div>
-                  )}
-                </div>
-              )}
+                  ))
+                )}
+                {inventoryView === 'Murid' && members.filter(m => m.type === 'Murid' && m.year === selectedYear).length === 0 && (
+                  <div className="col-span-full py-32 text-center bg-white rounded-[4rem] border-4 border-dashed border-slate-200">
+                     <UserCircle size={48} className="mx-auto text-slate-200 mb-4" />
+                     <p className="text-sm font-black text-slate-300 uppercase italic tracking-[0.2em]">Belum ada murid didaftarkan</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -706,9 +686,10 @@ const App: React.FC = () => {
               <div className="flex overflow-x-auto gap-3 no-scrollbar bg-white p-3 rounded-[2.2rem] border-2 shadow-xl shadow-slate-200/50 border-slate-100">
                   {[
                     { id: 'overview', label: 'RUMUSAN', icon: LayoutDashboard },
-                    { id: 'inventori', label: 'STOK BUKU', icon: Package },
+                    { id: 'manage', label: 'INVENTORI', icon: Package },
                     { id: 'members', label: 'AHLI/GURU', icon: UserPlus },
                     { id: 'damages', label: 'KES HILANG', icon: AlertTriangle },
+                    { id: 'session', label: 'URUS SESI', icon: TrendingUp },
                     { id: 'system', label: 'CLOUD', icon: ShieldCheck }
                   ].map(tab => (
                     <button 
@@ -763,7 +744,7 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {adminSubTab === 'inventori' && (
+              {adminSubTab === 'manage' && (
                 <div className="space-y-10 animate-in slide-in-from-bottom-10 text-left">
                    <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
                      <div>
@@ -807,26 +788,26 @@ const App: React.FC = () => {
               {adminSubTab === 'members' && (
                 <div className="space-y-10 animate-in slide-in-from-bottom-10 text-left">
                    <div className="flex flex-col lg:flex-row justify-between items-center gap-8">
-                      <div className="bg-white p-2 rounded-[2rem] border-2 border-slate-200 flex shadow-sm gap-2">
-                        <button onClick={() => setInventoryView('Guru')} className={`px-10 py-4 rounded-2xl text-[11px] font-black uppercase transition-all ${inventoryView === 'Guru' ? 'bg-indigo-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-slate-50'}`}>STAF GURU</button>
-                        <button onClick={() => setInventoryView('Murid')} className={`px-10 py-4 rounded-2xl text-[11px] font-black uppercase transition-all ${inventoryView === 'Murid' ? 'bg-indigo-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-slate-50'}`}>SENARAI MURID</button>
+                      <div className="bg-white p-2 rounded-[2rem] border-2 border-slate-200 shadow-sm flex gap-2">
+                        <button onClick={() => setAdminMemberView('Guru')} className={`px-10 py-4 rounded-2xl text-[11px] font-black uppercase transition-all ${adminMemberView === 'Guru' ? 'bg-indigo-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-slate-50'}`}>STAF GURU</button>
+                        <button onClick={() => setAdminMemberView('Murid')} className={`px-10 py-4 rounded-2xl text-[11px] font-black uppercase transition-all ${adminMemberView === 'Murid' ? 'bg-indigo-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:bg-slate-50'}`}>URUS MURID</button>
                       </div>
-                      <button onClick={() => { setNewMember({ type: inventoryView, year: inventoryView === 'Murid' ? selectedYear : undefined, name: '' }); setIsAddingMember(true); }} className="px-10 py-5 bg-indigo-600 text-white rounded-[2rem] font-black uppercase text-[11px] flex items-center gap-4 shadow-2xl hover:bg-indigo-700 transition-all border-b-8 border-indigo-900 active:translate-y-1 active:border-b-0">
+                      <button onClick={() => { setNewMember({ type: adminMemberView, year: adminMemberView === 'Murid' ? selectedMemberYear : undefined, name: '' }); setIsAddingMember(true); }} className="px-10 py-5 bg-indigo-600 text-white rounded-[2rem] font-black uppercase text-[11px] flex items-center gap-4 shadow-2xl hover:bg-indigo-700 transition-all border-b-8 border-indigo-900 active:translate-y-1 active:border-b-0">
                         <UserPlus size={24}/> DAFTAR AHLI BARU
                       </button>
                    </div>
                    
-                   {inventoryView === 'Murid' && (
+                   {adminMemberView === 'Murid' && (
                       <div className="flex bg-white p-3 rounded-[2.5rem] border-2 border-slate-100 shadow-sm overflow-x-auto no-scrollbar gap-3">
                         {YEARS.map(y => (
-                          <button key={y} onClick={() => setSelectedYear(y)} className={`flex-1 min-w-[100px] py-4 rounded-2xl font-black uppercase text-[11px] transition-all ${selectedYear === y ? 'bg-indigo-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:text-indigo-950 hover:bg-indigo-50'}`}>TAHUN {y}</button>
+                          <button key={y} onClick={() => setSelectedMemberYear(y)} className={`flex-1 min-w-[100px] py-4 rounded-2xl font-black uppercase text-[11px] transition-all ${selectedMemberYear === y ? 'bg-indigo-600 text-white shadow-xl scale-105' : 'text-slate-400 hover:text-indigo-950 hover:bg-indigo-50'}`}>TAHUN {y}</button>
                         ))}
                       </div>
                    )}
 
                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                      {members.filter(m => m.type === inventoryView && (inventoryView === 'Guru' || m.year === selectedYear)).sort((a,b) => a.name.localeCompare(b.name)).map(m => (
-                        <div key={m.id} onClick={() => { setSelectedMemberDetail(m); setIsMemberDetailOpen(true); }} className="bg-white p-8 rounded-[3rem] border-2 border-slate-100 flex items-center justify-between cursor-pointer hover:border-indigo-400 hover:shadow-2xl transition-all shadow-sm group relative overflow-hidden">
+                      {members.filter(m => m.type === adminMemberView && (adminMemberView === 'Guru' || m.year === selectedMemberYear)).sort((a,b) => a.name.localeCompare(b.name)).map(m => (
+                        <div key={m.id} onClick={() => { setSelectedMemberDetail(m); setEditedMemberName(m.name); setIsEditingMemberName(false); setIsMemberDetailOpen(true); }} className="bg-white p-8 rounded-[3rem] border-2 border-slate-100 flex items-center justify-between cursor-pointer hover:border-indigo-400 hover:shadow-2xl transition-all shadow-sm group relative overflow-hidden">
                            <div className="flex items-center gap-5 relative z-10 text-left">
                               <div className="w-16 h-16 bg-indigo-50 text-indigo-700 rounded-[1.5rem] flex items-center justify-center font-black text-2xl group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-inner">{m.name.charAt(0)}</div>
                               <div className="overflow-hidden">
@@ -879,18 +860,30 @@ const App: React.FC = () => {
                 </div>
               )}
 
+              {adminSubTab === 'session' && (
+                <div className="max-w-xl text-left animate-in slide-in-from-bottom-10">
+                   <div className="bg-white rounded-[4rem] border-2 border-slate-100 p-12 shadow-2xl border-b-[15px] border-indigo-200 space-y-10">
+                      <div className="flex items-center gap-5 text-indigo-950 border-b-2 border-slate-50 pb-8"><TrendingUp size={40} className="text-indigo-600"/><h3 className="text-2xl font-black uppercase tracking-tighter italic">Kawalan Sesi Sekolah</h3></div>
+                      <div className="space-y-6">
+                         <button onClick={() => { if (confirm("Semua murid akan naik kelas. Teruskan?")) { setMembers(prev => prev.map(m => m.type === 'Murid' && m.year ? { ...m, year: m.year + 1 } : m).filter(m => m.type === 'Guru' || (m.year && m.year <= 6))); pushToCloud(true); }}} className="w-full py-7 bg-indigo-600 text-white rounded-[2.5rem] font-black uppercase text-xs shadow-2xl border-b-8 border-indigo-900 active:translate-y-1 hover:bg-indigo-700 transition flex items-center justify-center gap-4"><ArrowUpCircle size={24}/> NAIK KELAS (SEMUA MURID)</button>
+                         <button onClick={() => { if (confirm("Padam semua log transaksi?")) { setTransactions([]); pushToCloud(true); }}} className="w-full py-7 bg-rose-600 text-white rounded-[2.5rem] font-black uppercase text-xs shadow-2xl border-b-8 border-rose-900 active:translate-y-1 hover:bg-rose-700 transition flex items-center justify-center gap-4"><RotateCcw size={24}/> PADAM REKOD TRANSAKSI</button>
+                      </div>
+                   </div>
+                </div>
+              )}
+
               {adminSubTab === 'system' && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-in slide-in-from-bottom-10 text-left">
                   <div className="bg-[#0f172a] rounded-[4rem] p-12 text-white shadow-2xl flex flex-col justify-between border-b-[15px] border-indigo-950 group">
                     <div>
                       <div className="flex items-center gap-5 mb-10 pb-10 border-b border-white/5">
-                        <div className="w-14 h-14 bg-indigo-600/20 rounded-2xl flex items-center justify-center text-indigo-400"><Globe size={32} /></div>
+                        <div className="w-14 h-14 bg-indigo-600/20 rounded-2xl flex items-center justify-center text-indigo-400"><CloudLightning size={32} /></div>
                         <div>
                           <h3 className="text-3xl font-black uppercase tracking-tighter italic leading-none">KAWALAN CLOUD</h3>
                           <p className="text-[10px] font-black text-indigo-300 opacity-50 uppercase tracking-widest mt-2">Penyelarasan Data Sekolah</p>
                         </div>
                       </div>
-                      <p className="text-sm font-bold text-indigo-200/50 mb-12 uppercase leading-relaxed tracking-widest italic text-left">Sistem Pintar: Sebaik sahaja anda mengaktifkan pautan ini, seluruh sekolah dianggap "Berdaftar" dalam Cloud. Anda tidak perlu daftar sekolah lagi di peranti lain.</p>
+                      <p className="text-sm font-bold text-indigo-200/50 mb-12 uppercase leading-relaxed tracking-widest italic text-left">Sebaik sahaja anda menjana pautan ini, data sekolah akan disimpan di Cloud. Pengguna lain yang menggunakan pautan ini tidak perlu lagi melalui proses pendaftaran.</p>
                     </div>
                     <div className="space-y-6">
                       <button onClick={handleGenerateSyncLink} disabled={isSyncing} className="w-full py-7 bg-indigo-600 text-white rounded-[2.5rem] font-black uppercase text-xs shadow-2xl flex items-center justify-center gap-4 transition-all hover:bg-indigo-500 active:translate-y-1 border-b-8 border-indigo-800">
@@ -926,8 +919,8 @@ const App: React.FC = () => {
                           <input type="text" className="w-full px-7 pt-9 pb-4 rounded-[2rem] border-2 bg-slate-50 font-black text-indigo-900 focus:border-indigo-600 outline-none shadow-inner" value={adminSettings.adminPass} onChange={(e) => setAdminSettings({...adminSettings, adminPass: e.target.value})} />
                        </div>
                     </div>
-                    <button onClick={() => { pushToCloud(); alert("Tetapan telah disimpan dan diselaraskan!"); }} className="w-full py-7 bg-indigo-600 text-white rounded-[2.5rem] font-black uppercase text-xs shadow-2xl hover:bg-indigo-700 active:translate-y-1 border-b-8 border-indigo-900 flex items-center justify-center gap-4 transition-all">
-                       <Save size={24} /> SIMPAN PERUBAHAN
+                    <button onClick={() => { pushToCloud(); alert("Kredential Berjaya Disimpan!"); }} className="w-full py-7 bg-indigo-600 text-white rounded-[2.5rem] font-black uppercase text-xs shadow-2xl hover:bg-indigo-700 active:translate-y-1 border-b-8 border-indigo-900 flex items-center justify-center gap-4 transition-all">
+                       <Save size={24} /> SIMPAN TETAPAN
                     </button>
                   </div>
                 </div>
@@ -956,9 +949,9 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-white rounded-[4rem] border-2 border-slate-100 shadow-xl overflow-hidden">
+              <div className="bg-white rounded-[4rem] border-2 border-slate-100 shadow-xl overflow-hidden text-left">
                 <div className="p-10 bg-slate-50 border-b-2 border-slate-100 flex items-center justify-between">
-                  <div className="flex items-center gap-5">
+                  <div className="flex items-center gap-5 text-left">
                     <div className="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-600/20"><BookOpen size={24}/></div>
                     <h4 className="font-black text-indigo-950 uppercase text-md tracking-tighter italic">REKOD PINJAMAN AKTIF ANDA</h4>
                   </div>
@@ -1035,24 +1028,24 @@ const App: React.FC = () => {
                  </div>
                  <div className="space-y-8">
                     <div className="relative">
-                      <label className="text-[9px] font-black text-indigo-400 uppercase absolute left-6 top-3">JUDUL BUKU PENUH</label>
+                      <label className="text-[9px] font-black text-indigo-400 uppercase absolute left-6 top-3 tracking-widest">JUDUL BUKU PENUH</label>
                       <input type="text" className="w-full px-7 pt-9 pb-4 rounded-[2rem] border-2 bg-slate-50 font-black uppercase outline-none focus:border-indigo-600 shadow-inner" value={isAddingBook ? newBook.title : (bookToEdit?.title || '')} onChange={(e) => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                        <div className="relative">
-                          <label className="text-[9px] font-black text-indigo-400 uppercase absolute left-6 top-3">TAHUN / DARJAH</label>
+                          <label className="text-[9px] font-black text-indigo-400 uppercase absolute left-6 top-3 tracking-widest">TAHUN / DARJAH</label>
                           <select className="w-full px-7 pt-9 pb-4 rounded-[2rem] border-2 bg-slate-50 font-black outline-none focus:border-indigo-600 shadow-inner" value={isAddingBook ? newBook.year : (bookToEdit?.year || 1)} onChange={(e) => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>
                              {YEARS.map(y => <option key={y} value={y}>TAHUN {y}</option>)}
                           </select>
                        </div>
                        <div className="relative">
-                          <label className="text-[9px] font-black text-indigo-400 uppercase absolute left-6 top-3">STOK PERMULAAN</label>
+                          <label className="text-[9px] font-black text-indigo-400 uppercase absolute left-6 top-3 tracking-widest">STOK PERMULAAN</label>
                           <input type="number" className="w-full px-7 pt-9 pb-4 rounded-[2rem] border-2 bg-slate-50 font-black outline-none focus:border-indigo-600 shadow-inner" value={isAddingBook ? newBook.stock : (bookToEdit?.stock || 0)} onChange={(e) => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
                        </div>
                     </div>
-                    <div className="relative">
-                       <label className="text-[9px] font-black text-emerald-600 uppercase absolute left-6 top-3 tracking-widest">HARGA RM (NILAI GANTI)</label>
-                       <input type="number" step="0.01" className="w-full px-7 pt-9 pb-4 rounded-[2rem] border-2 bg-emerald-50 text-emerald-900 font-black outline-none focus:border-emerald-500 shadow-inner" value={isAddingBook ? newBook.price : (bookToEdit?.price || 0)} onChange={(e) => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
+                    <div className="relative bg-emerald-50 rounded-[2rem] p-6 border-2 border-emerald-100 shadow-inner">
+                       <label className="text-[10px] font-black text-emerald-700 uppercase mb-2 block tracking-widest">HARGA (RM) - NILAI GANTI</label>
+                       <input type="number" step="0.01" className="w-full bg-transparent font-black text-3xl text-emerald-950 outline-none" value={isAddingBook ? newBook.price : (bookToEdit?.price || 0)} onChange={(e) => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
                     </div>
                     <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-7 bg-indigo-600 text-white rounded-[2.5rem] font-black uppercase shadow-2xl hover:bg-indigo-700 border-b-8 border-indigo-900 active:translate-y-1 active:border-b-0 transition-all flex items-center justify-center gap-4">
                       <Save size={24} /> SIMPAN KE INVENTORI
@@ -1065,14 +1058,14 @@ const App: React.FC = () => {
         {isAddingMember && (
           <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
              <div className="bg-white w-full max-w-md rounded-[4rem] p-12 shadow-2xl border-b-[20px] border-indigo-600 animate-in zoom-in duration-300 text-left">
-                <div className="flex justify-between items-center mb-10 pb-6 border-b-2 border-slate-50">
+                <div className="flex justify-between items-center mb-10 pb-6 border-b-2 border-slate-50 text-left">
                   <h3 className="text-2xl font-black uppercase tracking-tighter text-indigo-950 italic">DAFTAR {newMember.type} BARU</h3>
                   <button onClick={() => setIsAddingMember(false)} className="p-3 hover:bg-rose-50 text-slate-300 hover:text-rose-500 rounded-2xl transition-all active:scale-90"><X size={24} /></button>
                 </div>
                 <div className="space-y-8 text-left">
                    <div className="relative">
-                      <label className="text-[9px] font-black text-indigo-400 uppercase absolute left-6 top-3">NAMA PENUH AHLI</label>
-                      <input type="text" className="w-full px-7 pt-9 pb-4 rounded-[2rem] border-2 bg-slate-50 font-black uppercase outline-none focus:border-indigo-600 shadow-inner" value={newMember.name} onChange={(e) => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
+                      <label className="text-[9px] font-black text-indigo-400 uppercase absolute left-6 top-3 tracking-widest">NAMA PENUH AHLI</label>
+                      <input type="text" placeholder="HURUF BESAR" className="w-full px-7 pt-9 pb-4 rounded-[2rem] border-2 bg-slate-50 font-black uppercase outline-none focus:border-indigo-600 shadow-inner" value={newMember.name} onChange={(e) => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
                    </div>
                    {newMember.type === 'Murid' && (
                      <div className="grid grid-cols-3 gap-3">
@@ -1094,7 +1087,14 @@ const App: React.FC = () => {
                     <div className="flex items-center gap-6">
                        <div className="w-20 h-20 bg-indigo-600 text-white rounded-[2rem] flex items-center justify-center font-black text-3xl shadow-2xl rotate-3 border-4 border-white relative z-10">{selectedMemberDetail.name.charAt(0)}</div>
                        <div className="relative z-10 overflow-hidden text-left">
-                          <h3 className="text-2xl font-black text-indigo-950 uppercase italic leading-tight truncate max-w-[220px]">{selectedMemberDetail.name}</h3>
+                          <div className="flex items-center gap-2">
+                             {!isEditingMemberName ? (
+                               <h3 className="text-2xl font-black text-indigo-950 uppercase italic leading-tight truncate max-w-[220px]">{selectedMemberDetail.name}</h3>
+                             ) : (
+                               <input type="text" className="bg-white border-2 border-indigo-300 px-3 py-1 rounded-lg font-black uppercase text-xs outline-none w-48 shadow-inner text-indigo-900" value={editedMemberName} onChange={(e) => setEditedMemberName(e.target.value.toUpperCase())} />
+                             )}
+                             <button onClick={() => isEditingMemberName ? handleUpdateMemberName() : setIsEditingMemberName(true)} className="p-2 text-indigo-400 hover:text-indigo-600">{isEditingMemberName ? <CheckCircle size={20}/> : <Edit2 size={20}/>}</button>
+                          </div>
                           <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mt-1">{selectedMemberDetail.type} {selectedMemberDetail.year ? `• T${selectedMemberDetail.year}` : ''}</p>
                        </div>
                     </div>
@@ -1103,10 +1103,10 @@ const App: React.FC = () => {
                  <div className="p-10 overflow-y-auto flex-1 space-y-8 bg-white no-scrollbar text-left">
                     <div className="flex justify-between items-center border-b-2 border-slate-50 pb-6">
                        <h4 className="text-[11px] font-black uppercase text-indigo-950 tracking-widest flex items-center gap-3"><BookOpen size={20} className="text-indigo-400" /> PINJAMAN AKTIF AHLI</h4>
-                       <button onClick={() => { setBorrowingMember(selectedMemberDetail); setIsBorrowModalOpen(true); }} className="px-7 py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl border-b-4 border-indigo-800 active:scale-95 transition-all">TAMBAH PINJAMAN</button>
+                       <button onClick={() => { setBorrowingMember(selectedMemberDetail); setSearchInLoan(''); setYearFilterInLoan(selectedMemberDetail.year || 'Semua'); setIsBorrowModalOpen(true); }} className="px-7 py-3 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[10px] shadow-xl border-b-4 border-indigo-800 active:scale-95 transition-all">TAMBAH PINJAMAN</button>
                     </div>
                     <div className="space-y-5">
-                       {getActiveLoans(selectedMemberDetail.name).map(loan => (
+                       {getActiveLoans(selectedMemberDetail.name).length > 0 ? getActiveLoans(selectedMemberDetail.name).map(loan => (
                          <div key={loan.id} className="p-6 bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] flex items-center justify-between group hover:border-indigo-400 transition-all shadow-sm">
                             <div className="flex-1 pr-6 overflow-hidden text-left">
                                <p className="font-black text-indigo-950 text-[13px] uppercase truncate group-hover:text-indigo-600 leading-tight mb-2">{loan.bookTitle}</p>
@@ -1114,11 +1114,10 @@ const App: React.FC = () => {
                             </div>
                             <div className="flex gap-3">
                                <button onClick={() => handleAction(loan.bookId, 'Pemulangan', selectedMemberDetail.name, selectedMemberDetail.type)} className="px-7 py-3 bg-emerald-600 text-white rounded-2xl font-black text-[9px] uppercase shadow-lg border-b-4 border-emerald-800 active:scale-95 transition-all">PULANG</button>
-                               <button onClick={() => { if(confirm("Laporkan buku ini sebagai Rosak atau Hilang?")) handleAction(loan.bookId, 'Pulang Rosak/Hilang', selectedMemberDetail.name, selectedMemberDetail.type); }} className="p-3.5 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all shadow-sm"><AlertTriangle size={22}/></button>
+                               <button onClick={() => handleAction(loan.bookId, 'Pulang Rosak/Hilang', selectedMemberDetail.name, selectedMemberDetail.type)} className="p-3.5 text-rose-500 bg-rose-50 hover:bg-rose-500 hover:text-white rounded-2xl transition-all shadow-sm"><AlertTriangle size={22}/></button>
                             </div>
                          </div>
-                       ))}
-                       {getActiveLoans(selectedMemberDetail.name).length === 0 && <p className="text-center py-16 text-[11px] font-black text-slate-300 uppercase italic tracking-[0.3em]">TIADA PINJAMAN AKTIF</p>}
+                       )) : <p className="text-center py-16 text-[11px] font-black text-slate-300 uppercase italic tracking-[0.3em]">TIADA PINJAMAN AKTIF</p>}
                     </div>
                  </div>
                  <div className="p-10 bg-slate-50 border-t-2 border-slate-100 flex justify-end">
@@ -1139,21 +1138,22 @@ const App: React.FC = () => {
                    <button onClick={() => {setIsBorrowModalOpen(false); setSelectedBooksToBorrow(new Set());}} className="p-3 hover:bg-rose-50 rounded-2xl transition-all active:scale-90"><X size={32} className="text-slate-300" /></button>
                 </div>
                 
-                <div className="px-10 py-8 bg-slate-50 border-b-2 border-indigo-100 flex gap-6 text-left">
+                <div className="px-10 py-8 bg-slate-50 border-b-2 border-indigo-100 flex flex-col sm:flex-row gap-6 text-left">
                    <div className="relative flex-1 group">
-                      <Search size={22} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-indigo-600 transition" />
-                      <input type="text" placeholder="CARI TAJUK BUKU..." className="w-full pl-16 pr-8 py-5 bg-white rounded-[2rem] border-2 border-slate-100 font-black text-[12px] outline-none focus:border-indigo-600 shadow-inner group-focus-within:shadow-xl transition-all uppercase" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                      <Search size={22} className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition" />
+                      <input type="text" placeholder="CARI TAJUK BUKU..." className="w-full pl-16 pr-8 py-5 bg-white rounded-[2rem] border-2 border-slate-100 font-black text-[12px] outline-none focus:border-indigo-600 shadow-inner group-focus-within:shadow-xl transition-all uppercase" value={searchInLoan} onChange={(e) => setSearchInLoan(e.target.value.toUpperCase())} />
                    </div>
-                   <div className="flex gap-2">
+                   <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                     <button onClick={() => setYearFilterInLoan('Semua')} className={`w-14 h-14 shrink-0 rounded-2xl font-black text-[9px] uppercase border-2 transition-all ${yearFilterInLoan === 'Semua' ? 'bg-indigo-600 text-white border-indigo-700 shadow-lg' : 'bg-white text-slate-400 border-slate-100'}`}>Semua</button>
                      {YEARS.map(y => (
-                       <button key={y} onClick={() => setSelectedYear(y)} className={`w-14 h-14 rounded-2xl font-black text-xs transition-all border-2 ${selectedYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-lg' : 'bg-white text-slate-300 border-slate-100'}`}>T{y}</button>
+                       <button key={y} onClick={() => setYearFilterInLoan(y)} className={`w-14 h-14 shrink-0 rounded-2xl font-black text-xs transition-all border-2 ${yearFilterInLoan === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-lg' : 'bg-white text-slate-300 border-slate-100'}`}>T{y}</button>
                      ))}
                    </div>
                 </div>
 
                 <div className="p-10 overflow-y-auto flex-1 bg-white no-scrollbar text-left">
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      {books.filter(b => b.year === selectedYear && b.title.toLowerCase().includes(searchQuery.toLowerCase())).sort((a,b) => a.title.localeCompare(b.title)).map(book => {
+                      {books.filter(b => (yearFilterInLoan === 'Semua' || b.year === yearFilterInLoan) && (searchInLoan === '' || b.title.includes(searchInLoan))).map(book => {
                         const isSelected = selectedBooksToBorrow.has(book.id);
                         return (
                           <div 
@@ -1183,8 +1183,8 @@ const App: React.FC = () => {
                       <p className="text-4xl font-black text-indigo-950">{selectedBooksToBorrow.size} <span className="text-sm uppercase text-indigo-400">UNIT</span></p>
                    </div>
                    <button 
-                    onClick={() => { Array.from(selectedBooksToBorrow).forEach(id => handleAction(id, 'Pinjaman', borrowingMember.name, borrowingMember.type, 1)); setIsBorrowModalOpen(false); setSelectedBooksToBorrow(new Set()); pushToCloud(true); }} 
-                    className="px-12 py-6 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl uppercase text-[12px] border-b-8 border-indigo-900 active:translate-y-1 active:border-b-0 transition-all flex items-center gap-4" 
+                    onClick={() => { Array.from(selectedBooksToBorrow).forEach(id => handleAction(id, 'Pinjaman', borrowingMember.name, borrowingMember.type, 1, true)); setIsBorrowModalOpen(false); setSelectedBooksToBorrow(new Set()); pushToCloud(true); }} 
+                    className="px-12 py-6 bg-indigo-600 text-white font-black rounded-[2.5rem] shadow-2xl uppercase text-[12px] border-b-8 border-indigo-900 active:translate-y-1 active:border-b-0 transition-all flex items-center gap-4 disabled:opacity-50" 
                     disabled={selectedBooksToBorrow.size === 0}
                    >
                      <Save size={24} /> SAHKAN PINJAMAN SEKARANG
