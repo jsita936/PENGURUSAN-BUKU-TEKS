@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Book, Transaction, UserType, TransactionStatus, ActionType, BookType, Member, AdminSettings, ResolutionMethod, ResolutionStatus } from './types';
 import { INITIAL_BOOKS, YEARS, CATEGORIES } from './constants';
 import { getStockInsight } from './services/geminiService';
@@ -31,7 +31,10 @@ import {
   TrendingUp,
   Printer,
   Share2,
-  DollarSign
+  DollarSign,
+  CloudLightning,
+  RefreshCw,
+  LogOut
 } from 'lucide-react';
 
 type AuthView = 'landing' | 'guru_auth' | 'admin_auth' | 'setup' | 'main';
@@ -75,68 +78,114 @@ const App: React.FC = () => {
   const [bookToEdit, setBookToEdit] = useState<Book | null>(null);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   const [newBook, setNewBook] = useState<Partial<Book>>({ title: '', year: 1, type: 'Buku Teks', stock: 0, subject: '', price: 0 });
   const [newMember, setNewMember] = useState<Partial<Member>>({ name: '', type: 'Guru', year: 1 });
   const [isEditingMemberName, setIsEditingMemberName] = useState(false);
   const [editedMemberName, setEditedMemberName] = useState('');
 
-  // --- Cloud Sync Logic (Optimized for Short URLs) ---
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && hash.startsWith('#sync=')) {
-      try {
-        const encodedData = hash.replace('#sync=', '');
-        const decodedData = JSON.parse(decodeURIComponent(escape(atob(encodedData))));
-        if (confirm(`Data sekolah "${decodedData.s}" dikesan. Import data ini ke peranti ini?`)) {
-          const mappedSettings: AdminSettings = {
-            schoolName: decodedData.s,
-            adminId: decodedData.i,
-            adminPass: decodedData.p,
-            adminName: decodedData.n || 'ADMIN',
-            isRegistered: true
-          };
-          
-          // Reconstitute Books: Match standard IDs from initial books, else treat as custom
-          const syncedBooks: Book[] = (decodedData.b || []).map((arr: any) => {
-            if (arr.length === 2) { // Short format: [id, stock]
-              const base = INITIAL_BOOKS.find(ib => ib.id === arr[0]);
-              return base ? { ...base, stock: arr[1] } : null;
-            }
-            // Long format: [id, title, year, type, stock, price]
-            return { id: arr[0], title: arr[1], year: arr[2], type: arr[3], stock: arr[4], price: arr[5] };
-          }).filter(Boolean);
+  // --- Deterministic Cloud ID ---
+  const getCloudKey = useCallback(() => {
+    if (!adminSettings.schoolName || !adminSettings.adminId) return null;
+    const rawKey = `${adminSettings.schoolName}_${adminSettings.adminId}`;
+    return btoa(unescape(encodeURIComponent(rawKey))).replace(/[/+=]/g, '').substring(0, 12);
+  }, [adminSettings.schoolName, adminSettings.adminId]);
 
-          const syncedIds = new Set(syncedBooks.map(b => b.id));
-          const finalBooks = [
-            ...syncedBooks,
-            ...INITIAL_BOOKS.filter(ib => !syncedIds.has(ib.id))
-          ];
-          
-          const mappedMembers: Member[] = (decodedData.m || []).map((arr: any) => ({
-            id: arr[0], 
-            name: arr[1], 
-            type: arr[2] === 0 ? 'Guru' : 'Murid', 
-            year: arr[3]
-          }));
+  // --- Cloud Sync Actions ---
+  const pushToCloud = async (silent = false) => {
+    const key = getCloudKey();
+    if (!key) return;
+    if (!silent) setIsSyncing(true);
+    
+    try {
+      const payload = {
+        s: adminSettings.schoolName,
+        i: adminSettings.adminId,
+        p: adminSettings.adminPass,
+        n: adminSettings.adminName,
+        b: books.map(b => [b.id, b.stock]), // Hanya stok untuk penjimatan ruang
+        m: members.map(m => [m.id, m.name, m.type === 'Guru' ? 0 : 1, m.year]),
+        t: transactions.slice(0, 50) // Ambil 50 transaksi terakhir sahaja
+      };
+      
+      await fetch(`https://api.keyvalue.xyz/${key}`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      if (!silent) alert("Data Awan Dikemaskini!");
+    } catch (e) {
+      console.error("Cloud Push Error:", e);
+    } finally {
+      if (!silent) setIsSyncing(false);
+    }
+  };
 
-          setAdminSettings(mappedSettings);
-          setBooks(finalBooks);
-          setMembers(mappedMembers);
-          
-          localStorage.setItem('spbt_books_data', JSON.stringify(finalBooks));
-          localStorage.setItem('spbt_members_data', JSON.stringify(mappedMembers));
-          localStorage.setItem('spbt_admin_settings', JSON.stringify(mappedSettings));
-          
-          window.history.replaceState(null, "", window.location.pathname);
-          alert("Penyelarasan Pintar Berjaya!");
+  const pullFromCloud = async (targetKey?: string) => {
+    const key = targetKey || getCloudKey();
+    if (!key) return;
+    setIsSyncing(true);
+    
+    try {
+      const res = await fetch(`https://api.keyvalue.xyz/${key}`);
+      const data = await res.json();
+      
+      if (data && data.s) {
+        setAdminSettings({
+          schoolName: data.s,
+          adminId: data.i,
+          adminPass: data.p,
+          adminName: data.n || 'ADMIN',
+          isRegistered: true
+        });
+
+        // Rekonstruksi Buku
+        const updatedBooks = INITIAL_BOOKS.map(ib => {
+          const cloudBook = data.b.find((cb: any) => cb[0] === ib.id);
+          return cloudBook ? { ...ib, stock: cloudBook[1] } : ib;
+        });
+        setBooks(updatedBooks);
+
+        // Rekonstruksi Ahli
+        const updatedMembers = data.m.map((am: any) => ({
+          id: am[0], name: am[1], type: am[2] === 0 ? 'Guru' : 'Murid', year: am[3]
+        }));
+        setMembers(updatedMembers);
+        
+        // Rekonstruksi Transaksi
+        if (data.t) setTransactions(data.t);
+
+        if (targetKey) {
+          alert(`Berjaya disambung ke peranti utama ${data.s}!`);
+          window.location.hash = '';
           window.location.reload();
         }
-      } catch (e) {
-        console.error("Ralat Sync:", e);
+      }
+    } catch (e) {
+      console.error("Cloud Pull Error:", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // --- Handle Sync Link Detection ---
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.startsWith('#cloud=')) {
+      const key = hash.replace('#cloud=', '');
+      if (confirm("Pautan Cloud Sync dikesan. Sambung ke pangkalan data sekolah ini?")) {
+        pullFromCloud(key);
       }
     }
   }, []);
+
+  // --- Auto Cloud Sync (Debounced for Admin) ---
+  useEffect(() => {
+    if (isAdminAuthenticated && adminSettings.isRegistered) {
+      const timer = setTimeout(() => pushToCloud(true), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [books, transactions, members, isAdminAuthenticated]);
 
   // --- Persistence ---
   useEffect(() => {
@@ -167,37 +216,14 @@ const App: React.FC = () => {
 
   // --- Handlers ---
   const handleGenerateSyncLink = () => {
-    // Only send books that differ from initial state or are custom
-    const syncBooks = books.map(b => {
-      const initial = INITIAL_BOOKS.find(ib => ib.id === b.id);
-      if (initial) {
-        // Only include if stock has changed from default
-        return b.stock !== initial.stock ? [b.id, b.stock] : null;
-      }
-      // New custom books
-      return [b.id, b.title, b.year, b.type, b.stock, b.price];
-    }).filter(Boolean);
-
-    const syncMembers = members.map(m => [
-      m.id, 
-      m.name, 
-      m.type === 'Guru' ? 0 : 1, 
-      m.year
-    ]);
-
-    const compactData = {
-      s: adminSettings.schoolName,
-      i: adminSettings.adminId,
-      p: adminSettings.adminPass,
-      n: adminSettings.adminName,
-      b: syncBooks,
-      m: syncMembers
-    };
+    const key = getCloudKey();
+    if (!key) return alert("Sila daftar Admin terlebih dahulu.");
     
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(compactData))));
-    const shareUrl = `${window.location.origin}${window.location.pathname}#sync=${encoded}`;
-    
-    navigator.clipboard.writeText(shareUrl).then(() => alert("PAUTAN SYNC DIPENDEKKAN & DISALIN!"));
+    // First, push initial data
+    pushToCloud().then(() => {
+      const shareUrl = `${window.location.origin}${window.location.pathname}#cloud=${key}`;
+      navigator.clipboard.writeText(shareUrl).then(() => alert("PAUTAN CLOUD SYNC DIPENDEKKAN & DISALIN!\n\nGuru lain hanya perlu buka pautan ini sekali sahaja untuk auto-sync selamanya."));
+    });
   };
 
   const handleRegisterAdmin = (e: React.FormEvent) => {
@@ -422,7 +448,15 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 shadow-sm z-10">
           <h2 className="text-xl font-black text-indigo-900 uppercase tracking-tighter">{activeTab.toUpperCase()}</h2>
-          <span className="text-[10px] bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full font-black border border-indigo-200 uppercase tracking-widest">{adminSettings.schoolName}</span>
+          <div className="flex items-center gap-4">
+            <button onClick={() => pullFromCloud()} className={`p-2 rounded-xl border-2 transition-all ${isSyncing ? 'animate-spin border-indigo-600 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-indigo-600 hover:text-indigo-600'}`} title="Refresh Data Cloud">
+              <RefreshCw size={20} />
+            </button>
+            <span className="hidden sm:inline text-[10px] bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full font-black border border-indigo-200 uppercase tracking-widest">{adminSettings.schoolName}</span>
+            <button onClick={handleLogout} className="md:hidden p-2 bg-rose-50 text-rose-600 rounded-xl border border-rose-100">
+              <LogOut size={20} />
+            </button>
+          </div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-6 md:p-10 pb-24 bg-slate-50">
@@ -594,13 +628,16 @@ const App: React.FC = () => {
 
                     <div className="bg-white rounded-[3rem] border-2 border-slate-200 p-10 shadow-xl border-b-8 border-emerald-200">
                       <div className="flex items-center gap-4 mb-8 pb-4 border-b">
-                        <Share2 size={28} className="text-emerald-600" />
-                        <h3 className="text-xl font-black text-indigo-950 uppercase tracking-tighter">Penyelarasan (Sync)</h3>
+                        <CloudLightning size={28} className="text-emerald-600" />
+                        <h3 className="text-xl font-black text-indigo-950 uppercase tracking-tighter">Cloud Sync Pintar</h3>
                       </div>
                       <div className="p-6 bg-indigo-50 border-2 border-indigo-100 rounded-[2rem] mb-6 text-center font-bold text-xs">
-                        Jana pautan penyelarasan pantas untuk dikongsi kepada Guru lain. Pautan ini dipendekkan melalui mampatan data.
+                        Aktifkan Cloud Sync untuk penyelarasan data masa nyata merentasi semua peranti Guru secara automatik.
                       </div>
-                      <button onClick={handleGenerateSyncLink} className="w-full py-6 bg-indigo-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all hover:bg-indigo-700 border-b-4 border-indigo-800"><Plus size={20}/> Jana Pautan Sync</button>
+                      <button onClick={handleGenerateSyncLink} disabled={isSyncing} className={`w-full py-6 bg-indigo-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all hover:bg-indigo-700 border-b-4 border-indigo-800 ${isSyncing ? 'opacity-50' : ''}`}>
+                        {isSyncing ? <RefreshCw className="animate-spin" /> : <Share2 size={20}/>}
+                        Jana Pautan Cloud Sync
+                      </button>
                     </div>
                   </div>
                 </div>
