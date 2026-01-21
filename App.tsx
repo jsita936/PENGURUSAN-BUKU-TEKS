@@ -85,8 +85,13 @@ const App: React.FC = () => {
   const [isEditingMemberName, setIsEditingMemberName] = useState(false);
   const [editedMemberName, setEditedMemberName] = useState('');
 
-  // --- Deterministic Cloud ID ---
+  // --- Cloud Sync Key Management ---
   const getCloudKey = useCallback(() => {
+    // Priority 1: From localStorage (for synced devices)
+    const storedKey = localStorage.getItem('spbt_cloud_sync_key');
+    if (storedKey) return storedKey;
+    
+    // Priority 2: Deterministic key for Admin
     if (!adminSettings.schoolName || !adminSettings.adminId) return null;
     const rawKey = `${adminSettings.schoolName}_${adminSettings.adminId}`;
     return btoa(unescape(encodeURIComponent(rawKey))).replace(/[/+=]/g, '').substring(0, 12);
@@ -95,7 +100,7 @@ const App: React.FC = () => {
   // --- Cloud Sync Actions ---
   const pushToCloud = async (silent = false) => {
     const key = getCloudKey();
-    if (!key) return;
+    if (!key || !isAdminAuthenticated) return;
     if (!silent) setIsSyncing(true);
     
     try {
@@ -104,16 +109,16 @@ const App: React.FC = () => {
         i: adminSettings.adminId,
         p: adminSettings.adminPass,
         n: adminSettings.adminName,
-        b: books.map(b => [b.id, b.stock]), // Hanya stok untuk penjimatan ruang
+        b: books.map(b => [b.id, b.stock]), 
         m: members.map(m => [m.id, m.name, m.type === 'Guru' ? 0 : 1, m.year]),
-        t: transactions.slice(0, 50) // Ambil 50 transaksi terakhir sahaja
+        t: transactions.slice(0, 100) 
       };
       
       await fetch(`https://api.keyvalue.xyz/${key}`, {
         method: 'POST',
         body: JSON.stringify(payload)
       });
-      if (!silent) alert("Data Awan Dikemaskini!");
+      if (!silent) alert("Penyelarasan Awan Berjaya!");
     } catch (e) {
       console.error("Cloud Push Error:", e);
     } finally {
@@ -121,16 +126,18 @@ const App: React.FC = () => {
     }
   };
 
-  const pullFromCloud = async (targetKey?: string) => {
+  const pullFromCloud = async (targetKey?: string, silent = false) => {
     const key = targetKey || getCloudKey();
     if (!key) return;
-    setIsSyncing(true);
+    if (!silent) setIsSyncing(true);
     
     try {
       const res = await fetch(`https://api.keyvalue.xyz/${key}`);
+      if (!res.ok) return;
       const data = await res.json();
       
       if (data && data.s) {
+        // Update local state with cloud data
         setAdminSettings({
           schoolName: data.s,
           adminId: data.i,
@@ -139,24 +146,31 @@ const App: React.FC = () => {
           isRegistered: true
         });
 
-        // Rekonstruksi Buku
-        const updatedBooks = INITIAL_BOOKS.map(ib => {
-          const cloudBook = data.b.find((cb: any) => cb[0] === ib.id);
-          return cloudBook ? { ...ib, stock: cloudBook[1] } : ib;
+        // Sync Books (Stok sahaja untuk penjimatan ruang)
+        const updatedBooks = books.map(b => {
+          const cloudBook = data.b.find((cb: any) => cb[0] === b.id);
+          return cloudBook ? { ...b, stock: cloudBook[1] } : b;
         });
+        
+        // Handle custom books (if any in cloud that are not in local INITIAL_BOOKS/current state)
+        // Note: Currently we only sync stock for reliability, but we could sync full objects if needed.
+        
         setBooks(updatedBooks);
 
-        // Rekonstruksi Ahli
+        // Sync Members
         const updatedMembers = data.m.map((am: any) => ({
           id: am[0], name: am[1], type: am[2] === 0 ? 'Guru' : 'Murid', year: am[3]
         }));
         setMembers(updatedMembers);
         
-        // Rekonstruksi Transaksi
+        // Sync Transactions
         if (data.t) setTransactions(data.t);
 
-        if (targetKey) {
-          alert(`Berjaya disambung ke peranti utama ${data.s}!`);
+        // Save sync key to persist connection
+        localStorage.setItem('spbt_cloud_sync_key', key);
+
+        if (targetKey && !silent) {
+          alert(`Penyelarasan Automatik Aktif untuk ${data.s}!`);
           window.location.hash = '';
           window.location.reload();
         }
@@ -164,7 +178,7 @@ const App: React.FC = () => {
     } catch (e) {
       console.error("Cloud Pull Error:", e);
     } finally {
-      setIsSyncing(false);
+      if (!silent) setIsSyncing(false);
     }
   };
 
@@ -173,21 +187,34 @@ const App: React.FC = () => {
     const hash = window.location.hash;
     if (hash && hash.startsWith('#cloud=')) {
       const key = hash.replace('#cloud=', '');
-      if (confirm("Pautan Cloud Sync dikesan. Sambung ke pangkalan data sekolah ini?")) {
+      if (confirm("Gunakan Cloud Sync untuk peranti ini? Rekod akan sentiasa selari dengan Admin secara automatik.")) {
         pullFromCloud(key);
       }
     }
   }, []);
 
-  // --- Auto Cloud Sync (Debounced for Admin) ---
+  // --- Automatic Sync Polling (For non-admin or multi-device) ---
+  useEffect(() => {
+    const key = localStorage.getItem('spbt_cloud_sync_key') || getCloudKey();
+    if (key) {
+      // Admin auto-pushes (handled in another useEffect), 
+      // Everyone auto-pulls every 30 seconds for background sync
+      const interval = setInterval(() => {
+        pullFromCloud(key, true);
+      }, 30000); 
+      return () => clearInterval(interval);
+    }
+  }, [getCloudKey]);
+
+  // --- Auto Cloud Sync Push (Debounced for Admin) ---
   useEffect(() => {
     if (isAdminAuthenticated && adminSettings.isRegistered) {
-      const timer = setTimeout(() => pushToCloud(true), 3000);
+      const timer = setTimeout(() => pushToCloud(true), 2000);
       return () => clearTimeout(timer);
     }
-  }, [books, transactions, members, isAdminAuthenticated]);
+  }, [books, transactions, members, isAdminAuthenticated, adminSettings.isRegistered]);
 
-  // --- Persistence ---
+  // --- Persistence & Initial Load ---
   useEffect(() => {
     const savedSettings = localStorage.getItem('spbt_admin_settings');
     const savedName = localStorage.getItem('spbt_user_name');
@@ -205,6 +232,10 @@ const App: React.FC = () => {
     if (savedTrans) setTransactions(JSON.parse(savedTrans));
     if (savedMembers) setMembers(JSON.parse(savedMembers));
     else setMembers([{ id: '1', name: 'PENYELARAS SPBT', type: 'Guru' }]);
+
+    // On initial load, try a pull if sync is enabled
+    const syncKey = localStorage.getItem('spbt_cloud_sync_key');
+    if (syncKey) pullFromCloud(syncKey, true);
   }, []);
 
   useEffect(() => {
@@ -219,10 +250,12 @@ const App: React.FC = () => {
     const key = getCloudKey();
     if (!key) return alert("Sila daftar Admin terlebih dahulu.");
     
-    // First, push initial data
     pushToCloud().then(() => {
       const shareUrl = `${window.location.origin}${window.location.pathname}#cloud=${key}`;
-      navigator.clipboard.writeText(shareUrl).then(() => alert("PAUTAN CLOUD SYNC DIPENDEKKAN & DISALIN!\n\nGuru lain hanya perlu buka pautan ini sekali sahaja untuk auto-sync selamanya."));
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        localStorage.setItem('spbt_cloud_sync_key', key);
+        alert("PAUTAN CLOUD SYNC AKTIF!\n\nPautan sangat pendek telah disalin. Guru lain yang klik pautan ini akan sentiasa mendapat kemaskini automatik.");
+      });
     });
   };
 
@@ -449,11 +482,11 @@ const App: React.FC = () => {
         <header className="h-20 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 shadow-sm z-10">
           <h2 className="text-xl font-black text-indigo-900 uppercase tracking-tighter">{activeTab.toUpperCase()}</h2>
           <div className="flex items-center gap-4">
-            <button onClick={() => pullFromCloud()} className={`p-2 rounded-xl border-2 transition-all ${isSyncing ? 'animate-spin border-indigo-600 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-indigo-600 hover:text-indigo-600'}`} title="Refresh Data Cloud">
+            <button onClick={() => pullFromCloud()} className={`p-2 rounded-xl border-2 transition-all ${isSyncing ? 'animate-spin border-indigo-600 text-indigo-600' : 'border-slate-100 text-slate-400 hover:border-indigo-600 hover:text-indigo-600'}`} title="Penyelarasan Manual">
               <RefreshCw size={20} />
             </button>
             <span className="hidden sm:inline text-[10px] bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full font-black border border-indigo-200 uppercase tracking-widest">{adminSettings.schoolName}</span>
-            <button onClick={handleLogout} className="md:hidden p-2 bg-rose-50 text-rose-600 rounded-xl border border-rose-100">
+            <button onClick={handleLogout} className="md:hidden p-2 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 hover:bg-rose-100 transition shadow-sm" title="Log Keluar">
               <LogOut size={20} />
             </button>
           </div>
@@ -636,7 +669,7 @@ const App: React.FC = () => {
                       </div>
                       <button onClick={handleGenerateSyncLink} disabled={isSyncing} className={`w-full py-6 bg-indigo-600 text-white rounded-[2rem] font-black uppercase text-xs tracking-widest shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all hover:bg-indigo-700 border-b-4 border-indigo-800 ${isSyncing ? 'opacity-50' : ''}`}>
                         {isSyncing ? <RefreshCw className="animate-spin" /> : <Share2 size={20}/>}
-                        Jana Pautan Cloud Sync
+                        Aktifkan Cloud Sync
                       </button>
                     </div>
                   </div>
