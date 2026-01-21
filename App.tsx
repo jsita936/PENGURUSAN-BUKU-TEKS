@@ -465,8 +465,8 @@ const App: React.FC = () => {
                   <tbody className="divide-y text-[10px] font-bold">
                     {transactions.filter(t => t.status === 'Rosak/Hilang' && t.resolutionStatus === 'Tertunggak').map(t => (
                       <tr key={t.id} className="hover:bg-slate-50">
-                        <td className="px-8 py-5 uppercase">{t.userName}</td>
-                        <td className="px-8 py-5 uppercase text-slate-500">{t.bookTitle}</td>
+                        <td className="px-8 py-5 uppercase text-indigo-950">{t.userName}</td>
+                        <td className="px-8 py-5 uppercase text-slate-700">{t.bookTitle}</td>
                         <td className="px-8 py-5 text-center text-rose-600">RM {t.fineAmount?.toFixed(2)}</td>
                         <td className="px-8 py-5 text-right flex justify-end gap-2">
                           <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[8px] uppercase hover:bg-emerald-700 transition-colors">TUNAI</button>
@@ -537,10 +537,10 @@ const App: React.FC = () => {
                    <tbody className="divide-y text-[10px] font-bold">
                      {transactions.map(t => (
                        <tr key={t.id} className="hover:bg-slate-50">
-                         <td className="px-8 py-5 uppercase">{t.userName} <span className="opacity-30 text-[8px]">({t.userType})</span></td>
-                         <td className="px-8 py-5 uppercase text-slate-500 truncate max-w-[200px]">{t.bookTitle}</td>
-                         <td className="px-8 py-5 text-center"><span className={`px-4 py-1 rounded-lg text-[8px] font-black uppercase border ${t.action === 'Pinjaman' ? 'bg-indigo-50 text-indigo-700' : 'bg-emerald-50 text-emerald-700'}`}>{t.action}</span></td>
-                         <td className="px-8 py-5 text-slate-300 text-right italic">{t.timestamp}</td>
+                         <td className="px-8 py-5 uppercase text-indigo-950">{t.userName} <span className="opacity-60 text-[8px] text-indigo-600">({t.userType})</span></td>
+                         <td className="px-8 py-5 uppercase text-slate-700 truncate max-w-[200px]">{t.bookTitle}</td>
+                         <td className="px-8 py-5 text-center"><span className={`px-4 py-1 rounded-lg text-[8px] font-black uppercase border ${t.action === 'Pinjaman' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>{t.action}</span></td>
+                         <td className="px-8 py-5 text-slate-500 text-right italic">{t.timestamp}</td>
                        </tr>
                      ))}
                    </tbody>
