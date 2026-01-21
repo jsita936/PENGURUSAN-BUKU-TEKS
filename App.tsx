@@ -40,7 +40,8 @@ import {
   DollarSign,
   ShieldCheck,
   Copy,
-  Globe
+  Globe,
+  Wallet
 } from 'lucide-react';
 
 type AuthView = 'landing' | 'guru_auth' | 'admin_auth' | 'setup' | 'main';
@@ -115,7 +116,7 @@ const App: React.FC = () => {
         r: adminSettings.isRegistered,
         b: books.map(b => [b.id, b.stock, b.price, b.title, b.year, b.type, b.subject]), 
         m: members.map(m => [m.id, m.name, m.type === 'Guru' ? 0 : 1, m.year]),
-        t: transactions.slice(0, 150),
+        t: transactions.slice(0, 300), // Increased limit for better history
         v: v 
       };
       
@@ -237,7 +238,7 @@ const App: React.FC = () => {
     setBooks(updatedBooks);
     setTransactions(prev => [newTrans, ...prev]);
     
-    // Auto Push to Cloud for real-time
+    // Auto Push to Cloud
     isInternalUpdate.current = false;
     setTimeout(() => pushToCloud(true), 100);
   };
@@ -247,7 +248,6 @@ const App: React.FC = () => {
     if (!trans) return;
     if (method === 'Buku') setBooks(prev => prev.map(b => b.id === trans.bookId ? { ...b, stock: b.stock + 1 } : b));
     setTransactions(prev => prev.map(t => t.id === transactionId ? { ...t, resolutionStatus: 'Selesai', resolutionMethod: method } : t));
-    alert(`Rekod kerosakan telah diselesaikan secara ${method}.`);
     pushToCloud(true);
   };
 
@@ -464,7 +464,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 text-indigo-950 overflow-hidden">
-      {/* Sidebar - Desktop Only */}
+      {/* Sidebar */}
       <nav className="hidden md:flex w-72 bg-indigo-950 text-white flex-col shrink-0 shadow-2xl z-30">
         <div className="p-8 border-b border-white/10 flex items-center gap-4">
           <Library size={32} className="text-indigo-400" />
@@ -510,9 +510,9 @@ const App: React.FC = () => {
                   <button onClick={() => setInventoryView('Guru')} className={`px-10 py-3 rounded-2xl font-black text-[11px] uppercase transition-all ${inventoryView === 'Guru' ? 'bg-indigo-600 text-white shadow-xl scale-105' : 'text-slate-500 hover:bg-slate-50'}`}>Bagi Guru</button>
                   <button onClick={() => setInventoryView('Murid')} className={`px-10 py-3 rounded-2xl font-black text-[11px] uppercase transition-all ${inventoryView === 'Murid' ? 'bg-indigo-600 text-white shadow-xl scale-105' : 'text-slate-500 hover:bg-slate-50'}`}>Bagi Murid</button>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                    {YEARS.map(y => (
-                    <button key={y} onClick={() => setSelectedYear(y)} className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl font-black transition-all uppercase text-[11px] flex items-center justify-center border-2 ${selectedYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-lg scale-110' : 'bg-white text-slate-500 border-slate-100 hover:border-indigo-200'}`}>T{y}</button>
+                    <button key={y} onClick={() => setSelectedYear(y)} className={`w-10 h-10 md:w-12 md:h-12 shrink-0 rounded-2xl font-black transition-all uppercase text-[11px] flex items-center justify-center border-2 ${selectedYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-lg scale-110' : 'bg-white text-slate-500 border-slate-100 hover:border-indigo-200'}`}>T{y}</button>
                   ))}
                 </div>
               </div>
@@ -651,40 +651,95 @@ const App: React.FC = () => {
                            <div className="p-2 bg-slate-50 text-slate-300 rounded-xl group-hover:text-indigo-600 group-hover:bg-indigo-50 transition-all"><ChevronRight size={20} /></div>
                         </div>
                       ))}
-                      {members.filter(m => m.type === adminMemberView && (adminMemberView === 'Guru' || m.year === selectedMemberYear)).length === 0 && (
-                        <div className="col-span-full py-20 text-center border-4 border-dashed border-slate-200 rounded-[3rem] text-slate-400 font-black uppercase text-[11px] tracking-widest">Tiada ahli didaftarkan untuk kategori ini.</div>
-                      )}
                    </div>
                 </div>
               )}
 
               {adminSubTab === 'damages' && (
-                <div className="space-y-6">
-                  <h3 className="text-xl font-black uppercase text-indigo-950 tracking-tighter">Rekod Kerosakan & Ganti Rugi</h3>
-                  <div className="bg-white rounded-[3rem] border-2 border-slate-200 overflow-hidden shadow-xl">
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left">
-                        <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-400 border-b tracking-widest">
-                            <tr><th className="px-8 py-6">Nama Ahli</th><th className="px-8 py-6">Judul Buku</th><th className="px-8 py-6">Nilai Ganti</th><th className="px-8 py-6 text-center">Tindakan Selesaikan</th></tr>
-                        </thead>
-                        <tbody className="divide-y text-[11px] font-bold text-indigo-950">
-                            {transactions.filter(t => t.status === 'Rosak/Hilang' && t.resolutionStatus === 'Tertunggak').map(t => (
-                              <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                                <td className="px-8 py-6 uppercase font-black">{t.userName}</td>
-                                <td className="px-8 py-6 uppercase truncate max-w-[200px]">{t.bookTitle}</td>
-                                <td className="px-8 py-6 text-rose-600 font-black">RM {t.fineAmount?.toFixed(2)}</td>
-                                <td className="px-8 py-6 flex justify-center gap-3">
-                                  <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-[9px] uppercase font-black shadow-md border-b-4 border-emerald-800 active:scale-95">Bayar Tunai</button>
-                                  <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[9px] uppercase font-black shadow-md border-b-4 border-indigo-800 active:scale-95">Ganti Buku</button>
-                                </td>
-                              </tr>
-                            ))}
-                        </tbody>
-                      </table>
+                <div className="space-y-8 animate-in slide-in-from-bottom-6 duration-500">
+                  {/* Total Collection Header */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-[2.5rem] p-8 border-2 border-slate-100 shadow-sm flex items-center gap-6">
+                      <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center shadow-inner">
+                        <Wallet size={32} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Jumlah Kutipan Tunai</p>
+                        <p className="text-3xl font-black text-emerald-600 leading-tight">RM {transactions.filter(t => t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Tunai').reduce((acc, t) => acc + (t.fineAmount || 0), 0).toFixed(2)}</p>
+                      </div>
                     </div>
-                    {transactions.filter(t => t.status === 'Rosak/Hilang' && t.resolutionStatus === 'Tertunggak').length === 0 && (
-                      <div className="p-20 text-center text-[12px] font-black text-slate-300 uppercase italic tracking-widest">Alhamdulillah, tiada kerosakan tertunggak.</div>
-                    )}
+                    <div className="bg-white rounded-[2.5rem] p-8 border-2 border-slate-100 shadow-sm flex items-center gap-6">
+                      <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-3xl flex items-center justify-center shadow-inner">
+                        <AlertTriangle size={32} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Kes Masih Tertunggak</p>
+                        <p className="text-3xl font-black text-rose-600 leading-tight">{transactions.filter(t => t.status === 'Rosak/Hilang' && t.resolutionStatus === 'Tertunggak').length} <span className="text-sm uppercase text-slate-300">Kes</span></p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pending Actions Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 ml-2">
+                       <History size={18} className="text-indigo-600" />
+                       <h3 className="text-lg font-black uppercase text-indigo-950 tracking-tighter">Tindakan Tertunggak</h3>
+                    </div>
+                    <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 overflow-hidden shadow-xl">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-400 border-b tracking-widest">
+                              <tr><th className="px-8 py-6">Nama Ahli</th><th className="px-8 py-6">Judul Buku</th><th className="px-8 py-6">Nilai Ganti</th><th className="px-8 py-6 text-center">Tindakan Selesaikan</th></tr>
+                          </thead>
+                          <tbody className="divide-y text-[11px] font-bold text-indigo-950">
+                              {transactions.filter(t => t.status === 'Rosak/Hilang' && t.resolutionStatus === 'Tertunggak').map(t => (
+                                <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-8 py-6 uppercase font-black">{t.userName}</td>
+                                  <td className="px-8 py-6 uppercase truncate max-w-[200px]">{t.bookTitle}</td>
+                                  <td className="px-8 py-6 text-rose-600 font-black">RM {t.fineAmount?.toFixed(2)}</td>
+                                  <td className="px-8 py-6 flex justify-center gap-3">
+                                    <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-[9px] uppercase font-black shadow-md border-b-4 border-emerald-800 active:scale-95">Bayar Tunai</button>
+                                    <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-[9px] uppercase font-black shadow-md border-b-4 border-indigo-800 active:scale-95">Ganti Buku</button>
+                                  </td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {transactions.filter(t => t.status === 'Rosak/Hilang' && t.resolutionStatus === 'Tertunggak').length === 0 && (
+                        <div className="p-20 text-center text-[11px] font-black text-slate-300 uppercase italic tracking-widest">Tiada rekod tertunggak dikesan.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Completed Collection Records Section */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3 ml-2">
+                       <DollarSign size={18} className="text-emerald-600" />
+                       <h3 className="text-lg font-black uppercase text-indigo-950 tracking-tighter">Rekod Kutipan Tunai</h3>
+                    </div>
+                    <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 overflow-hidden shadow-sm">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                          <thead className="bg-slate-50 text-[10px] uppercase font-black text-slate-400 border-b tracking-widest">
+                              <tr><th className="px-8 py-5">Nama Ahli</th><th className="px-8 py-5">Judul Buku</th><th className="px-8 py-5">Amaun Diterima</th><th className="px-8 py-5 text-right">Tarikh Selesai</th></tr>
+                          </thead>
+                          <tbody className="divide-y text-[11px] font-bold text-indigo-950">
+                              {transactions.filter(t => t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Tunai').map(t => (
+                                <tr key={t.id} className="hover:bg-emerald-50/20 transition-colors">
+                                  <td className="px-8 py-5 uppercase">{t.userName}</td>
+                                  <td className="px-8 py-5 uppercase truncate max-w-[200px] text-slate-500 font-medium">{t.bookTitle}</td>
+                                  <td className="px-8 py-5 text-emerald-600 font-black tracking-tight">RM {t.fineAmount?.toFixed(2)}</td>
+                                  <td className="px-8 py-5 text-right font-black text-slate-400 italic text-[10px]">{t.timestamp}</td>
+                                </tr>
+                              ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {transactions.filter(t => t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Tunai').length === 0 && (
+                        <div className="p-16 text-center text-[10px] font-black text-slate-200 uppercase italic tracking-widest">Tiada rekod kutipan tunai setakat ini.</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
@@ -747,7 +802,7 @@ const App: React.FC = () => {
                         <input type="text" className="w-full px-6 pt-9 pb-3 rounded-[1.5rem] border-2 bg-slate-50 font-black uppercase text-indigo-900 focus:border-indigo-600 outline-none shadow-inner" value={adminSettings.schoolName} onChange={(e) => setAdminSettings({...adminSettings, schoolName: e.target.value.toUpperCase()})} />
                       </div>
                     </div>
-                    <button onClick={() => { pushToCloud(); alert("Kredential berjaya dikemaskini secara Online!"); }} className="w-full py-6 bg-white border-4 border-indigo-600 text-indigo-600 rounded-[2rem] font-black uppercase text-xs hover:bg-indigo-50 transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3">
+                    <button onClick={() => { pushToCloud(); alert("Kredential berjaya dikemaskini secara Online!"); }} className="w-full py-4 bg-white border-4 border-indigo-600 text-indigo-600 rounded-[2rem] font-black uppercase text-xs hover:bg-indigo-50 transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3">
                        <Save size={24} /> Simpan Perubahan Akses
                     </button>
                   </div>
@@ -1020,7 +1075,7 @@ const App: React.FC = () => {
 
         {/* Bottom Nav for Mobile */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t-4 border-slate-100 px-8 py-4 flex justify-between z-40 shadow-[0_-20px_50px_rgba(30,27,75,0.15)] rounded-t-[2.5rem]">
-           <button onClick={() => setActiveTab('inventory')} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'inventory' ? 'text-indigo-600 scale-125 font-black drop-shadow-lg' : 'text-slate-400'}`}><BookOpen size={24} /><span className="text-[9px] uppercase font-black tracking-tighter">Inventori</span></button>
+           <button onClick={() => setActiveTab('inventory')} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'inventory' ? 'text-indigo-600 scale-125 font-black drop-shadow-lg' : 'text-slate-400'}`}><BookOpen size={24} /><span className="text-[9px] uppercase font-black tracking-tighter">Bilik Buku</span></button>
            <button onClick={() => setActiveTab('history')} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'history' ? 'text-indigo-600 scale-125 font-black drop-shadow-lg' : 'text-slate-400'}`}><History size={24} /><span className="text-[9px] uppercase font-black tracking-tighter">Rekod</span></button>
            <button onClick={() => setActiveTab('profile')} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'profile' ? 'text-indigo-600 scale-125 font-black drop-shadow-lg' : 'text-slate-400'}`}><UserCircle size={24} /><span className="text-[9px] uppercase font-black tracking-tighter">Profil</span></button>
            {isAdminAuthenticated && (<button onClick={() => { setActiveTab('admin'); setAdminSubTab('overview'); }} className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === 'admin' ? 'text-indigo-600 scale-125 font-black drop-shadow-lg' : 'text-slate-400'}`}><LayoutDashboard size={24} /><span className="text-[9px] uppercase font-black tracking-tighter">Admin</span></button>)}
