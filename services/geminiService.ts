@@ -1,8 +1,5 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { Book, Transaction } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const getStockInsight = async (books: Book[], transactions: Transaction[]) => {
   const prompt = `
@@ -18,6 +15,7 @@ export const getStockInsight = async (books: Book[], transactions: Transaction[]
   `;
 
   try {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
