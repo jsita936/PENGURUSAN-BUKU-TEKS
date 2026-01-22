@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Book, Transaction, UserType, TransactionStatus, ActionType, BookType, Member, AdminSettings, ResolutionMethod, ResolutionStatus } from './types';
 import { INITIAL_BOOKS, YEARS, CATEGORIES } from './constants';
@@ -31,11 +30,8 @@ import {
   ShieldCheck,
   LogOut,
   School,
-  Hash,
   CheckCircle,
-  Info,
-  FileText,
-  Calendar
+  FileText
 } from 'lucide-react';
 
 const MONTHS = [
@@ -44,7 +40,6 @@ const MONTHS = [
 ];
 
 const App: React.FC = () => {
-  // --- State Utama ---
   const [books, setBooks] = useState<Book[]>(() => {
     const saved = localStorage.getItem('spbt_books');
     return saved ? JSON.parse(saved) : INITIAL_BOOKS;
@@ -68,7 +63,6 @@ const App: React.FC = () => {
     };
   });
 
-  // --- Auth & Setup States ---
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('spbt_is_logged_in') === 'true';
   });
@@ -78,7 +72,6 @@ const App: React.FC = () => {
   const [regId, setRegId] = useState('');
   const [regPass, setRegPass] = useState('');
 
-  // --- UI States ---
   const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'members' | 'damages' | 'history' | 'session' | 'settings'>('overview');
   const [inventoryType, setInventoryType] = useState<BookType>('Buku Teks');
   const [selectedYear, setSelectedYear] = useState<number>(1);
@@ -88,7 +81,6 @@ const App: React.FC = () => {
   const [historyMonth, setHistoryMonth] = useState<number>(new Date().getMonth());
   const [damageFilterStatus, setDamageFilterStatus] = useState<'Semua' | 'Tertunggak' | 'Selesai'>('Semua');
 
-  // --- Modal States ---
   const [isAddingBook, setIsAddingBook] = useState(false);
   const [isEditingBook, setIsEditingBook] = useState(false);
   const [bookToEdit, setBookToEdit] = useState<Book | null>(null);
@@ -105,16 +97,35 @@ const App: React.FC = () => {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
+  const [editableFormData, setEditableFormData] = useState<Record<string, { serial: string, receivedDate: string, returnDate: string, status: string }>>({});
+
   const [newBook, setNewBook] = useState<Partial<Book>>({ title: '', code: '', year: 1, type: 'Buku Teks', stock: 0, price: 0 });
   const [newMember, setNewMember] = useState<Partial<Member>>({ name: '', type: 'Guru', year: 1 });
 
-  // --- Auto Save ---
   useEffect(() => localStorage.setItem('spbt_books', JSON.stringify(books)), [books]);
   useEffect(() => localStorage.setItem('spbt_transactions', JSON.stringify(transactions)), [transactions]);
   useEffect(() => localStorage.setItem('spbt_members', JSON.stringify(members)), [members]);
   useEffect(() => localStorage.setItem('spbt_settings', JSON.stringify(adminSettings)), [adminSettings]);
 
-  // --- Filtered ---
+  useEffect(() => {
+    if (isPrintFormOpen && selectedMemberDetail) {
+      const initial: typeof editableFormData = {};
+      books.filter(b => b.year === selectedMemberDetail.year).forEach(b => {
+        const pinjam = transactions.find(t => t.bookId === b.id && t.userName === selectedMemberDetail.name && t.action === 'Pinjaman');
+        const pulang = transactions.find(t => t.bookId === b.id && t.userName === selectedMemberDetail.name && (t.action === 'Pemulangan' || t.action === 'Pulang Rosak/Hilang'));
+        const isDamaged = pulang?.action === 'Pulang Rosak/Hilang';
+        
+        initial[b.id] = {
+          serial: '',
+          receivedDate: pinjam?.timestamp.split(',')[0] || '',
+          returnDate: pulang?.timestamp.split(',')[0] || '',
+          status: pulang ? (isDamaged ? 'ROSAK/HILANG' : 'BAIK') : ''
+        };
+      });
+      setEditableFormData(initial);
+    }
+  }, [isPrintFormOpen, selectedMemberDetail, books, transactions]);
+
   const filteredTransactions = useMemo(() => {
     return transactions.filter(t => {
       const date = new Date(t.createdAt);
@@ -122,7 +133,6 @@ const App: React.FC = () => {
     });
   }, [transactions, historyMonth]);
 
-  // --- Handlers ---
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     if (!regSchool || !regId || !regPass) return alert("Sila lengkapkan semua maklumat.");
@@ -154,13 +164,9 @@ const App: React.FC = () => {
     if (action === 'Pinjaman' && book.stock < qty) return alert("Stok tidak mencukupi!");
 
     let stockChange = 0;
-    if (action === 'Pinjaman') {
-      stockChange = -qty;
-    } else if (action === 'Pemulangan') {
-      stockChange = book.type === 'Buku Aktiviti' ? 0 : qty;
-    } else if (action === 'Pulang Rosak/Hilang') {
-      stockChange = 0;
-    }
+    if (action === 'Pinjaman') stockChange = -qty;
+    else if (action === 'Pemulangan') stockChange = book.type === 'Buku Aktiviti' ? 0 : qty;
+    else if (action === 'Pulang Rosak/Hilang') stockChange = 0;
 
     let status: TransactionStatus = action === 'Pulang Rosak/Hilang' ? 'Rosak/Hilang' : 'Berjaya';
     let resStatus: ResolutionStatus | undefined = action === 'Pulang Rosak/Hilang' ? 'Tertunggak' : undefined;
@@ -278,8 +284,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- UI RENDER ---
-
   if (!adminSettings.isRegistered) {
     return (
       <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-6 text-white font-['Plus_Jakarta_Sans']">
@@ -321,7 +325,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#f1f5f9] text-indigo-950 font-['Plus_Jakarta_Sans']">
-      {/* Sidebar */}
       <nav className="hidden md:flex w-72 bg-indigo-950 text-white flex-col shrink-0 shadow-2xl z-30 no-print">
         <div className="p-8 border-b border-white/5 flex items-center gap-4">
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg"><Library size={24} /></div>
@@ -433,7 +436,6 @@ const App: React.FC = () => {
                 </div>
                 <button onClick={() => setIsAddingMember(true)} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-indigo-900 flex items-center gap-2"><UserPlus size={18}/> TAMBAH AHLI</button>
               </div>
-              
               {memberTypeView === 'Murid' && (
                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                   {YEARS.map(y => (
@@ -441,17 +443,15 @@ const App: React.FC = () => {
                   ))}
                 </div>
               )}
-
               <div className="relative">
                 <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                 <input type="text" placeholder="CARI NAMA AHLI..." className="w-full pl-10 pr-4 py-4 bg-white rounded-2xl border font-black text-[10px] uppercase focus:border-indigo-600" value={searchQuery} onChange={e => setSearchQuery(e.target.value.toUpperCase())} />
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {members.filter(m => m.type === memberTypeView && (memberTypeView === 'Guru' || m.year === memberYearView) && (searchQuery === '' || m.name.includes(searchQuery))).sort((a,b) => a.name.localeCompare(b.name)).map(m => (
                   <div key={m.id} onClick={() => { setSelectedMemberDetail(m); setIsMemberDetailOpen(true); }} className="bg-white p-5 rounded-3xl border shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-400 transition-all group">
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black text-xl">{m.name.charAt(0)}</div>
+                      <div className="w-12 h-12 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black text-xl shrink-0">{m.name.charAt(0)}</div>
                       <div className="overflow-hidden"><h4 className="font-black text-[11px] uppercase truncate w-32 group-hover:text-indigo-600">{m.name}</h4><p className="text-[8px] font-black text-slate-600 uppercase italic mt-1">{getActiveLoans(m.name).length} PINJAMAN AKTIF</p></div>
                     </div>
                     <ChevronRight size={16} className="text-slate-200" />
@@ -504,21 +504,13 @@ const App: React.FC = () => {
                     <p className="text-4xl font-black text-emerald-600">RM {transactions.filter(t => t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Tunai').reduce((acc, t) => acc + (t.fineAmount || 0), 0).toFixed(2)}</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => setIsPrintDamageReportOpen(true)}
-                  className="px-10 py-8 bg-indigo-600 text-white rounded-[2rem] font-black text-[12px] uppercase shadow-xl flex flex-col items-center justify-center gap-2 hover:bg-indigo-700 transition-all"
-                >
-                  <Printer size={32}/>
-                  CETAK LAPORAN PEMFAILAN
-                </button>
+                <button onClick={() => setIsPrintDamageReportOpen(true)} className="px-10 py-8 bg-indigo-600 text-white rounded-[2rem] font-black text-[12px] uppercase shadow-xl flex flex-col items-center justify-center gap-2 hover:bg-indigo-700 transition-all"><Printer size={32}/>CETAK LAPORAN PEMFAILAN</button>
               </div>
-
               <div className="flex gap-2">
                 {['Semua', 'Tertunggak', 'Selesai'].map((s: any) => (
                   <button key={s} onClick={() => setDamageFilterStatus(s)} className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${damageFilterStatus === s ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}>{s}</button>
                 ))}
               </div>
-
               <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl">
                 <table className="w-full text-left">
                   <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-600 border-b">
@@ -533,8 +525,8 @@ const App: React.FC = () => {
                         <td className="px-8 py-5 text-right flex justify-end gap-2">
                           {t.resolutionStatus === 'Tertunggak' ? (
                             <>
-                              <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[8px] uppercase hover:bg-emerald-700 shadow-sm">TUNAI</button>
-                              <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[8px] uppercase hover:bg-indigo-700 shadow-sm">GANTI BUKU</button>
+                              <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[8px] uppercase hover:bg-emerald-700 shadow-sm font-black transition-transform active:scale-90">TUNAI</button>
+                              <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[8px] uppercase hover:bg-indigo-700 shadow-sm font-black transition-transform active:scale-90">GANTI BUKU</button>
                             </>
                           ) : (
                             <span className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-[8px] uppercase font-black border border-slate-200">SELESAI ({t.resolutionMethod})</span>
@@ -554,8 +546,8 @@ const App: React.FC = () => {
                 <TrendingUp size={64} className="mx-auto text-indigo-600 mb-6" />
                 <h3 className="text-2xl font-black uppercase italic text-indigo-950 leading-tight">Pengurusan Sesi Sekolah</h3>
                 <div className="space-y-4 mt-10">
-                  <button onClick={handleSessionPromotion} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[11px] shadow-lg flex items-center justify-center gap-3"><ArrowUpCircle size={20}/> PROSES NAIK KELAS</button>
-                  <button onClick={handleSessionReset} className="w-full py-5 bg-rose-50 text-rose-600 rounded-2xl font-black uppercase text-[11px] border border-rose-100 shadow-sm flex items-center justify-center gap-3"><RotateCcw size={20}/> PADAM SEMUA REKOD AHLI</button>
+                  <button onClick={handleSessionPromotion} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[11px] shadow-lg flex items-center justify-center gap-3 transition-transform active:scale-95"><ArrowUpCircle size={20}/> PROSES NAIK KELAS</button>
+                  <button onClick={handleSessionReset} className="w-full py-5 bg-rose-50 text-rose-600 rounded-2xl font-black uppercase text-[11px] border border-rose-100 shadow-sm flex items-center justify-center gap-3 transition-transform active:scale-95"><RotateCcw size={20}/> PADAM SEMUA REKOD AHLI</button>
                 </div>
               </div>
             </div>
@@ -566,10 +558,10 @@ const App: React.FC = () => {
               <div className="bg-white p-10 rounded-[3rem] border shadow-xl">
                 <div className="flex items-center gap-4 border-b pb-6 mb-8 text-indigo-950"><ShieldCheck className="text-indigo-600" size={32} /><h3 className="text-2xl font-black uppercase italic">Keselamatan Admin</h3></div>
                 <div className="space-y-4">
-                  <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black text-indigo-950" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} />
-                  <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black text-indigo-950" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} />
-                  <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-indigo-950" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} />
-                  <button onClick={handleUpdateAdminSettings} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-lg flex items-center justify-center gap-2 mt-4"><Save size={18}/> KEMASKINI TETAPAN</button>
+                  <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black text-indigo-950 transition-all outline-none focus:border-indigo-600" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} />
+                  <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black text-indigo-950 transition-all outline-none focus:border-indigo-600" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} />
+                  <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-indigo-950 transition-all outline-none focus:border-indigo-600" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} />
+                  <button onClick={handleUpdateAdminSettings} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-lg flex items-center justify-center gap-2 mt-4 transition-transform active:scale-95"><Save size={18}/> KEMASKINI TETAPAN</button>
                 </div>
               </div>
             </div>
@@ -577,24 +569,23 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* --- PRINTABLE MODALS (Must have .print-area class) --- */}
+      {/* --- PRINTABLE AREAS --- */}
 
-      {/* Laporan Kos Ganti - INDIVIDUAL GROUPING & PERSISTENT ARCHIVE */}
       {isPrintDamageReportOpen && (
         <div className="fixed inset-0 bg-white z-[600] flex flex-col overflow-y-auto no-scrollbar print-area">
           <div className="p-4 border-b flex justify-between items-center bg-rose-700 text-white no-print">
-            <div className="flex items-center gap-4 text-white"><FileText size={20} /><h3 className="text-sm font-black uppercase italic">Laporan Keseluruhan Kos Ganti</h3></div>
+            <div className="flex items-center gap-4 text-white"><FileText size={20} /><h3 className="text-sm font-black uppercase italic">Prapapar Laporan Kos Ganti</h3></div>
             <div className="flex gap-4">
                <button onClick={() => window.print()} className="px-6 py-2 bg-white text-rose-700 rounded-xl font-black text-[10px] uppercase shadow-lg flex items-center gap-2 transition-transform active:scale-95"><Printer size={14}/> CETAK SEKARANG</button>
                <button onClick={() => setIsPrintDamageReportOpen(false)} className="p-2 text-white/50 hover:text-white transition-colors"><X size={24}/></button>
             </div>
           </div>
           
-          <div className="flex-1 w-full max-w-6xl mx-auto p-12 bg-white text-black font-serif print:p-0 print:max-w-none">
-             <div className="border-b-4 border-black pb-4 mb-10 text-center relative text-black">
-                <h2 className="text-lg font-bold uppercase">{adminSettings.schoolName}</h2>
+          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black font-serif print:p-0 print:max-w-none">
+             <div className="border-b-4 border-black pb-4 mb-10 text-center text-black">
+                <h2 className="text-lg font-bold uppercase tracking-tight">{adminSettings.schoolName}</h2>
                 <h1 className="text-2xl font-black uppercase underline mt-2">REKOD ARKIB & TUNGGAKAN KEROSAKAN BUKU TEKS</h1>
-                <p className="text-[10px] font-bold uppercase mt-2 italic">DIJANA PADA: {new Date().toLocaleDateString('ms-MY')} • OLEH: {adminSettings.adminId}</p>
+                <p className="text-[10px] font-bold uppercase mt-2 italic">DIJANA PADA: {new Date().toLocaleDateString('ms-MY')} • OLEH: PENTADBIR SPBT</p>
              </div>
 
              {YEARS.map(y => {
@@ -602,60 +593,52 @@ const App: React.FC = () => {
                  const member = members.find(m => m.name === t.userName);
                  return t.status === 'Rosak/Hilang' && member?.year === y;
                });
-
                if (yearTrans.length === 0) return null;
-
                const studentGroups: { [key: string]: Transaction[] } = {};
                yearTrans.forEach(t => {
                  if (!studentGroups[t.userName]) studentGroups[t.userName] = [];
                  studentGroups[t.userName].push(t);
                });
-
                return (
                  <div key={y} className="mb-12">
-                   <div className="bg-slate-100 p-3 border-4 border-black mb-4">
+                   <div className="bg-white p-3 border-4 border-black mb-4">
                      <h3 className="text-lg font-black uppercase tracking-widest text-black">PENGGUNA TAHUN {y}</h3>
                    </div>
-                   
-                   {Object.entries(studentGroups).map(([studentName, transList], sIdx) => {
+                   {Object.entries(studentGroups).map(([studentName, transList]) => {
                      const pendingTotal = transList.filter(t => t.resolutionStatus === 'Tertunggak').reduce((acc, curr) => acc + (curr.fineAmount || 0), 0);
-                     const settledTotal = transList.filter(t => t.resolutionStatus === 'Selesai').reduce((acc, curr) => acc + (curr.fineAmount || 0), 0);
-                     
                      return (
-                       <div key={studentName} className="mb-10 border-2 border-black p-4 bg-white print:break-inside-avoid">
+                       <div key={studentName} className="mb-10 border-2 border-black p-4 bg-white print:break-inside-avoid text-black">
                          <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-1">
-                           <h4 className="text-sm font-black uppercase text-black">ID MURID: {sIdx + 1} • NAMA: {studentName}</h4>
-                           <span className="text-[10px] font-black italic uppercase">STATUS: {pendingTotal > 0 ? 'MEMPUNYAI TUNGGAKAN' : 'URUSAN SELESAI'}</span>
+                           <h4 className="text-sm font-black uppercase">NAMA: {studentName}</h4>
+                           <span className="text-[10px] font-black italic uppercase">{pendingTotal > 0 ? 'STATUS: TUNGGAKAN' : 'STATUS: SELESAI'}</span>
                          </div>
                          <table className="w-full border-collapse border-2 border-black text-[9px] text-black">
                            <thead>
-                             <tr className="bg-slate-50">
+                             <tr>
                                <th className="border-2 border-black p-1 w-8 text-center uppercase font-black">BIL</th>
                                <th className="border-2 border-black p-1 text-left uppercase font-black">JUDUL BUKU</th>
-                               <th className="border-2 border-black p-1 w-20 text-center uppercase font-black">KOD BUKU</th>
-                               <th className="border-2 border-black p-1 w-24 text-center uppercase font-black">NILAI GANTI (RM)</th>
-                               <th className="border-2 border-black p-1 w-32 text-center uppercase font-black">STATUS URUSAN</th>
+                               <th className="border-2 border-black p-1 w-20 text-center uppercase font-black">KOD</th>
+                               <th className="border-2 border-black p-1 w-24 text-center uppercase font-black">KOS (RM)</th>
+                               <th className="border-2 border-black p-1 w-32 text-center uppercase font-black">STATUS</th>
                              </tr>
                            </thead>
                            <tbody>
                              {transList.map((t, idx) => {
-                               const isSettled = t.resolutionStatus === 'Selesai';
+                               const isPending = t.resolutionStatus === 'Tertunggak';
                                return (
-                                 <tr key={t.id} className={!isSettled ? 'text-red-700 font-bold' : 'text-slate-500 italic'}>
-                                   <td className="border-2 border-black p-1 text-center font-bold">{idx + 1}</td>
+                                 <tr key={t.id} className={isPending ? 'text-red-600 font-bold' : 'text-black'}>
+                                   <td className="border-2 border-black p-1 text-center">{idx + 1}</td>
                                    <td className="border-2 border-black p-1 uppercase">{t.bookTitle}</td>
-                                   <td className="border-2 border-black p-1 text-center font-bold">{books.find(b => b.id === t.bookId)?.code || '-'}</td>
-                                   <td className="border-2 border-black p-1 text-center font-black">{t.fineAmount?.toFixed(2)}</td>
-                                   <td className="border-2 border-black p-1 text-center font-black uppercase text-[8px]">
-                                     {isSettled ? `SELESAI (${t.resolutionMethod})` : 'TERTUNGGAK'}
-                                   </td>
+                                   <td className="border-2 border-black p-1 text-center">{books.find(b => b.id === t.bookId)?.code || '-'}</td>
+                                   <td className="border-2 border-black p-1 text-center">{t.fineAmount?.toFixed(2)}</td>
+                                   <td className="border-2 border-black p-1 text-center uppercase text-[8px]">{t.resolutionStatus === 'Selesai' ? 'LUNAS' : 'TERTUNGGAK'}</td>
                                  </tr>
                                );
                              })}
-                             <tr className="bg-slate-50">
-                               <td colSpan={3} className="border-2 border-black p-2 text-right font-black uppercase text-[10px]">JUMLAH TUNGGAKAN AKTIF:</td>
-                               <td className="border-2 border-black p-2 text-center font-black bg-white text-red-700 text-[10px]">RM {pendingTotal.toFixed(2)}</td>
-                               <td className="border-2 border-black p-2 text-center font-black text-slate-400 uppercase text-[7px]">DISAHKAN OLEH: __________</td>
+                             <tr>
+                               <td colSpan={3} className="border-2 border-black p-2 text-right font-black uppercase text-[10px]">JUMLAH TUNGGAKAN:</td>
+                               <td className="border-2 border-black p-2 text-center font-black bg-white text-red-600 text-[10px]">RM {pendingTotal.toFixed(2)}</td>
+                               <td className="border-2 border-black p-2 text-center text-slate-400 italic">-----------------</td>
                              </tr>
                            </tbody>
                          </table>
@@ -665,26 +648,20 @@ const App: React.FC = () => {
                  </div>
                );
              })}
-
              <div className="mt-20 grid grid-cols-2 gap-20 text-center text-black">
-                <div>
-                   <p className="text-[11px] font-black underline mb-16 uppercase text-black">Disediakan Oleh:</p>
-                   <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black text-black">GURU UNIT SPBT</p>
+                <div className="print:break-inside-avoid">
+                   <p className="text-[11px] font-black underline mb-16 uppercase">Disediakan Oleh:</p>
+                   <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black">GURU UNIT SPBT</p>
                 </div>
-                <div>
-                   <p className="text-[11px] font-black underline mb-16 uppercase text-black">Disahkan Oleh:</p>
-                   <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black text-black">PENTADBIR SEKOLAH</p>
+                <div className="print:break-inside-avoid">
+                   <p className="text-[11px] font-black underline mb-16 uppercase">Disahkan Oleh:</p>
+                   <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black">PENTADBIR SEKOLAH</p>
                 </div>
-             </div>
-             
-             <div className="mt-16 pt-8 border-t border-black text-[9px] font-black italic text-right text-black uppercase opacity-60">
-               ARKIB KOS GANTI UNIT SPBT • SISTEM E-SPBT PINTAR
              </div>
           </div>
         </div>
       )}
 
-      {/* Borang Rekod Pinjaman Murid - Live Editor & Color Coding */}
       {isPrintFormOpen && selectedMemberDetail && (
         <div className="fixed inset-0 bg-white z-[500] flex flex-col overflow-y-auto no-scrollbar print-area">
           <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white no-print">
@@ -695,103 +672,101 @@ const App: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex-1 w-full max-w-6xl mx-auto p-12 bg-white text-black font-serif print:p-0 print:max-w-none">
-             <div className="border-b-2 border-black pb-4 mb-8 text-center relative text-black">
+          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black font-serif print:p-0 print:max-w-none">
+             <div className="border-b-2 border-black pb-4 mb-8 text-center text-black">
                 <h2 className="text-lg font-bold uppercase">{adminSettings.schoolName}</h2>
-                <h1 className="text-xl font-black uppercase underline">REKOD PENERIMAAN / PEMULANGAN BUKU TEKS</h1>
-                <h3 className="text-md font-bold uppercase mt-1">TAHUN {selectedMemberDetail.year}</h3>
+                <h1 className="text-xl font-black uppercase underline">REKOD PENERIMAAN & PEMULANGAN BUKU TEKS</h1>
+                <h3 className="text-md font-bold uppercase mt-1">MURID TAHUN {selectedMemberDetail.year}</h3>
              </div>
-
              <div className="grid grid-cols-2 gap-8 mb-8 text-black">
                 <div className="flex gap-2 items-center"><span className="font-bold uppercase text-xs">NAMA MURID:</span><span className="border-b-2 border-black flex-1 uppercase text-sm font-bold pb-0.5">{selectedMemberDetail.name}</span></div>
                 <div className="flex gap-2 items-center"><span className="font-bold uppercase text-xs">SESI:</span><span className="border-b-2 border-black flex-1 uppercase text-sm font-bold pb-0.5">{new Date().getFullYear()} / {new Date().getFullYear() + 1}</span></div>
              </div>
-
-             <table className="w-full border-collapse border-2 border-black text-[9px] text-black">
+             <table className="w-full border-collapse border-2 border-black text-[9px] text-black bg-transparent">
                 <thead>
-                  <tr className="bg-slate-50">
+                  <tr>
                     <th className="border-2 border-black p-1 w-6 text-center uppercase font-black">BIL</th>
                     <th className="border-2 border-black p-1 w-16 text-center uppercase font-black">KOD BUKU</th>
                     <th className="border-2 border-black p-1 text-left uppercase font-black">NAMA BUKU</th>
-                    <th className="border-2 border-black p-1 w-14 text-center uppercase font-black">HARGA (RM)</th>
-                    <th className="border-2 border-black p-1 w-24 text-center uppercase font-black">NO SIRI</th>
-                    <th className="border-2 border-black p-1 w-20 text-center uppercase font-black">TARIKH TERIMA</th>
-                    <th className="border-2 border-black p-1 w-20 text-center uppercase font-black">TARIKH PULANG</th>
-                    <th className="border-2 border-black p-1 w-6 text-center font-black">(/)</th>
-                    <th className="border-2 border-black p-1 text-center uppercase font-black">CATATAN (STATUS)</th>
+                    <th className="border-2 border-black p-1 w-14 text-center uppercase font-black">RM</th>
+                    <th className="border-2 border-black p-1 w-20 text-center uppercase font-black">NO SIRI</th>
+                    <th className="border-2 border-black p-1 w-20 text-center uppercase font-black">TERIMA</th>
+                    <th className="border-2 border-black p-1 w-20 text-center uppercase font-black">PULANG</th>
+                    <th className="border-2 border-black p-1 text-center uppercase font-black">CATATAN</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="bg-slate-100">
-                    <td colSpan={9} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase tracking-widest text-[10px]">BAHAGIAN 1: BUKU TEKS</td>
+                  <tr>
+                    <td colSpan={8} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase text-[10px]">BAHAGIAN 1: BUKU TEKS</td>
                   </tr>
                   {books.filter(b => b.year === selectedMemberDetail.year && b.type === 'Buku Teks').map((b, idx) => {
-                    const pinjam = transactions.find(t => t.bookId === b.id && t.userName === selectedMemberDetail.name && t.action === 'Pinjaman');
-                    const pulang = transactions.find(t => t.bookId === b.id && t.userName === selectedMemberDetail.name && (t.action === 'Pemulangan' || t.action === 'Pulang Rosak/Hilang'));
-                    const isDamaged = pulang?.action === 'Pulang Rosak/Hilang';
-                    const textColorClass = isDamaged ? 'text-red-600' : 'text-black';
-                    
+                    const data = editableFormData[b.id] || { serial: '', receivedDate: '', returnDate: '', status: '' };
+                    const isDamaged = data.status.toUpperCase().includes('ROSAK') || data.status.toUpperCase().includes('HILANG');
                     return (
-                      <tr key={b.id} className={`${textColorClass} group`}>
+                      <tr key={b.id} className={isDamaged ? 'text-red-600' : 'text-black'}>
                         <td className="border-2 border-black p-1 text-center font-bold">{idx + 1}.</td>
                         <td className="border-2 border-black p-1 text-center font-black">{b.code}</td>
                         <td className="border-2 border-black p-1 font-bold uppercase">{b.title}</td>
                         <td className="border-2 border-black p-1 text-center font-bold">{b.price.toFixed(2)}</td>
-                        <td className="border-2 border-black p-0 bg-white"><input type="text" className={`w-full border-none focus:ring-0 text-center uppercase font-black text-[10px] ${textColorClass} bg-transparent py-1.5 outline-none`} placeholder="..." /></td>
-                        <td className="border-2 border-black p-0 bg-white"><input type="text" defaultValue={pinjam?.timestamp.split(',')[0] || '-'} className={`w-full border-none focus:ring-0 text-center font-bold text-[10px] ${textColorClass} bg-transparent py-1.5 outline-none`} /></td>
-                        <td className="border-2 border-black p-0 bg-white"><input type="text" defaultValue={pulang?.timestamp.split(',')[0] || '-'} className={`w-full border-none focus:ring-0 text-center font-bold text-[10px] ${textColorClass} bg-transparent py-1.5 outline-none`} /></td>
-                        <td className="border-2 border-black p-1 text-center font-black">{pinjam ? '/' : ''}</td>
-                        <td className="border-2 border-black p-0 bg-white">
-                          <input type="text" defaultValue={pulang ? (isDamaged ? 'ROSAK/HILANG' : 'BAIK') : ''} className={`w-full border-none focus:ring-0 text-center font-black text-[10px] ${textColorClass} bg-transparent py-1.5 outline-none`} placeholder="..." />
+                        <td className="border-2 border-black p-0">
+                          <input type="text" value={data.serial} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, serial: e.target.value.toUpperCase()}})} className={`w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase ${isDamaged ? 'text-red-600' : 'text-black'}`} />
+                        </td>
+                        <td className="border-2 border-black p-0">
+                          <input type="text" value={data.receivedDate} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, receivedDate: e.target.value}})} className={`w-full h-full text-center font-bold text-[10px] outline-none bg-transparent ${isDamaged ? 'text-red-600' : 'text-black'}`} />
+                        </td>
+                        <td className="border-2 border-black p-0">
+                          <input type="text" value={data.returnDate} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, returnDate: e.target.value}})} className={`w-full h-full text-center font-bold text-[10px] outline-none bg-transparent ${isDamaged ? 'text-red-600' : 'text-black'}`} />
+                        </td>
+                        <td className="border-2 border-black p-0">
+                          <input type="text" value={data.status} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, status: e.target.value.toUpperCase()}})} className={`w-full h-full text-center font-black text-[7px] outline-none bg-transparent uppercase ${isDamaged ? 'text-red-600' : 'text-black'}`} />
                         </td>
                       </tr>
                     );
                   })}
-                  <tr className="bg-slate-100">
-                    <td colSpan={9} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase tracking-widest text-[10px]">BAHAGIAN 2: BUKU AKTIVITI (KEGUNAAN MURID)</td>
+                  <tr>
+                    <td colSpan={8} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase text-[10px]">BAHAGIAN 2: BUKU AKTIVITI</td>
                   </tr>
                   {books.filter(b => b.year === selectedMemberDetail.year && b.type === 'Buku Aktiviti').map((b, idx) => {
-                    const pinjam = transactions.find(t => t.bookId === b.id && t.userName === selectedMemberDetail.name && t.action === 'Pinjaman');
+                    const data = editableFormData[b.id] || { serial: '', receivedDate: '', returnDate: '', status: '' };
                     return (
-                      <tr key={b.id}>
+                      <tr key={b.id} className="text-black">
                         <td className="border-2 border-black p-1 text-center font-bold">{idx + 1}.</td>
                         <td className="border-2 border-black p-1 text-center font-black">{b.code}</td>
                         <td className="border-2 border-black p-1 font-bold uppercase">{b.title}</td>
                         <td className="border-2 border-black p-1 text-center font-bold">{b.price.toFixed(2)}</td>
-                        <td className="border-2 border-black p-0 bg-white"><input type="text" className="w-full border-none focus:ring-0 text-center uppercase font-black text-[10px] text-black bg-transparent py-1.5 outline-none" /></td>
-                        <td className="border-2 border-black p-0 bg-white"><input type="text" defaultValue={pinjam?.timestamp.split(',')[0] || '-'} className="w-full border-none focus:ring-0 text-center font-bold text-[10px] text-black bg-transparent py-1.5 outline-none" /></td>
-                        <td className="border-2 border-black p-1 text-center font-bold italic bg-slate-50">TIDAK PERLU</td>
-                        <td className="border-2 border-black p-1 text-center font-black">{pinjam ? '/' : ''}</td>
-                        <td className="border-2 border-black p-1 text-center italic uppercase"></td>
+                        <td className="border-2 border-black p-0">
+                          <input type="text" value={data.serial} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, serial: e.target.value.toUpperCase()}})} className="w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase" />
+                        </td>
+                        <td className="border-2 border-black p-0">
+                          <input type="text" value={data.receivedDate} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, receivedDate: e.target.value}})} className="w-full h-full text-center font-bold text-[10px] outline-none bg-transparent" />
+                        </td>
+                        <td className="border-2 border-black p-1 text-center italic text-[7px]">KEGUNAAN</td>
+                        <td className="border-2 border-black p-1"></td>
                       </tr>
                     );
                   })}
                 </tbody>
              </table>
-
-             <div className="mt-16 grid grid-cols-2 gap-12 text-center text-black">
+             <div className="mt-16 grid grid-cols-2 gap-12 text-center text-black print:break-inside-avoid">
                 <div>
                    <p className="text-[11px] font-black underline mb-10">Tandatangan Murid / Penjaga</p>
-                   <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black">Tarikh: ..............................</p>
+                   <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black text-black">Tarikh: ..............................</p>
                 </div>
                 <div>
                    <p className="text-[11px] font-black underline mb-10">Tandatangan Guru SPBT</p>
-                   <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black">Cap Sekolah</p>
+                   <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black text-black">Cap Sekolah</p>
                 </div>
              </div>
           </div>
         </div>
       )}
 
-      {/* --- ALL MODALS (RE-ADDED) --- */}
-      
-      {/* Member Detail Modal */}
       {isMemberDetailOpen && selectedMemberDetail && (
         <div className="fixed inset-0 bg-indigo-950/90 backdrop-blur-xl z-[200] flex items-center justify-center p-4 no-print">
           <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border-b-[15px] border-indigo-600 animate-in fade-in zoom-in duration-200">
             <div className="p-8 border-b bg-indigo-50/50 flex justify-between items-center">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl">{selectedMemberDetail.name.charAt(0)}</div>
+                <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl shrink-0">{selectedMemberDetail.name.charAt(0)}</div>
                 <div><h3 className="text-xl font-black uppercase italic leading-none">{selectedMemberDetail.name}</h3><p className="text-[9px] font-black text-indigo-400 uppercase mt-2">{selectedMemberDetail.type} {selectedMemberDetail.year ? `• TAHUN ${selectedMemberDetail.year}` : ''}</p></div>
               </div>
               <div className="flex items-center gap-2">
@@ -830,7 +805,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Add Member Modal */}
       {isAddingMember && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 no-print">
           <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-b-[15px] border-indigo-600">
@@ -844,19 +818,18 @@ const App: React.FC = () => {
                   <button key={t} onClick={() => setNewMember({...newMember, type: t as UserType})} className={`flex-1 py-3 rounded-lg font-black text-[9px] uppercase transition-all ${newMember.type === t ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>{t}</button>
                 ))}
               </div>
-              <input type="text" placeholder="NAMA PENUH" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
+              <input type="text" placeholder="NAMA PENUH" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950 outline-none focus:border-indigo-600" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
               {newMember.type === 'Murid' && (
                 <div className="flex gap-2">
-                  {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${newMember.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>{y}</button>)}
+                  {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] transition-all ${newMember.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>{y}</button>)}
                 </div>
               )}
-              <button onClick={handleAddMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl border-b-4 border-indigo-800 flex items-center justify-center gap-2"><UserPlus size={18}/> DAFTARKAN AHLI</button>
+              <button onClick={handleAddMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl border-b-4 border-indigo-800 flex items-center justify-center gap-2 transition-transform active:scale-95"><UserPlus size={18}/> DAFTARKAN AHLI</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Edit Member Modal */}
       {isEditingMember && memberToEdit && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4 no-print">
           <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-b-[15px] border-indigo-600">
@@ -865,7 +838,7 @@ const App: React.FC = () => {
               <button onClick={() => { setIsEditingMember(false); setMemberToEdit(null); }} className="p-2 text-slate-300 hover:text-rose-500"><X size={24}/></button>
             </div>
             <div className="space-y-6">
-              <input type="text" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={memberToEdit.name} onChange={e => setMemberToEdit({...memberToEdit, name: e.target.value.toUpperCase()})} />
+              <input type="text" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950 outline-none focus:border-indigo-600" value={memberToEdit.name} onChange={e => setMemberToEdit({...memberToEdit, name: e.target.value.toUpperCase()})} />
               {memberToEdit.type === 'Murid' && (
                 <div className="flex gap-2">
                   {YEARS.map(y => <button key={y} onClick={() => setMemberToEdit({...memberToEdit, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${memberToEdit.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>{y}</button>)}
@@ -877,7 +850,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Add/Edit Book Modal */}
       {(isAddingBook || isEditingBook) && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 no-print">
           <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-b-[15px] border-indigo-600">
@@ -886,20 +858,19 @@ const App: React.FC = () => {
               <button onClick={() => { setIsAddingBook(false); setIsEditingBook(false); }} className="p-2 text-slate-300 hover:text-rose-500"><X size={24}/></button>
             </div>
             <div className="space-y-6">
-              <input type="text" placeholder="KOD BUKU" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
-              <input type="text" placeholder="JUDUL BUKU" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
+              <input type="text" placeholder="KOD BUKU" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950 outline-none focus:border-indigo-600" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
+              <input type="text" placeholder="JUDUL BUKU" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950 outline-none focus:border-indigo-600" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
               <div className="grid grid-cols-2 gap-4">
-                <select className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px] text-indigo-950" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y}>TAHUN {y}</option>)}</select>
-                <input type="number" step="0.01" placeholder="HARGA (RM)" className="w-full px-5 py-4 rounded-xl border-2 bg-emerald-50 font-black text-[10px] text-emerald-900" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
+                <select className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px] text-indigo-950 outline-none focus:border-indigo-600" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y}>TAHUN {y}</option>)}</select>
+                <input type="number" step="0.01" placeholder="HARGA (RM)" className="w-full px-5 py-4 rounded-xl border-2 bg-emerald-50 font-black text-[10px] text-emerald-900 outline-none focus:border-emerald-600" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
               </div>
-              <input type="number" placeholder="STOK AWAL" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px] text-indigo-950" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
+              <input type="number" placeholder="STOK AWAL" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px] text-indigo-950 outline-none focus:border-indigo-600" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
               <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl border-b-4 border-indigo-800 flex items-center justify-center gap-2 transition-transform active:scale-95"><Save size={18}/> SIMPAN REKOD</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Borrow Modal */}
       {isBorrowModalOpen && selectedMemberDetail && (
         <div className="fixed inset-0 bg-indigo-950/95 backdrop-blur-xl z-[300] flex items-center justify-center p-4 no-print">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl flex flex-col border-b-[15px] border-indigo-600 text-indigo-950 animate-in zoom-in duration-300">
@@ -925,7 +896,7 @@ const App: React.FC = () => {
                       s.has(book.id) ? s.delete(book.id) : s.add(book.id);
                       setSelectedBooksToBorrow(s);
                     }} 
-                    className={`p-4 rounded-xl border-2 transition-all flex justify-between items-center ${isAlreadyBorrowed ? 'bg-slate-100 opacity-60 grayscale' : isOutOfStock ? 'opacity-50' : isSelected ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white cursor-pointer'}`}>
+                    className={`p-4 rounded-xl border-2 transition-all flex justify-between items-center ${isAlreadyBorrowed ? 'bg-slate-100 opacity-60 grayscale' : isOutOfStock ? 'opacity-50' : isSelected ? 'bg-indigo-600 text-white shadow-lg' : 'bg-white cursor-pointer hover:border-indigo-300'}`}>
                     <div className="overflow-hidden flex-1"><h4 className="font-black text-[10px] uppercase truncate">{book.title}</h4><p className="text-[8px] font-black uppercase mt-1 opacity-70">{book.code} • {isAlreadyBorrowed ? 'SUDAH DIPINJAM' : `STOK: ${book.stock}`}</p></div>
                     {isSelected && <CheckCircle size={16}/>}{isAlreadyBorrowed && <Lock size={14} />}
                   </div>
