@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Book, Transaction, UserType, TransactionStatus, ActionType, BookType, Member, AdminSettings, ResolutionMethod, ResolutionStatus } from './types';
 import { INITIAL_BOOKS, YEARS, CATEGORIES } from './constants';
@@ -11,7 +12,6 @@ import {
   BookOpen,
   ChevronRight,
   Trash2,
-  CheckCircle,
   Edit2,
   X,
   BookPlus,
@@ -32,7 +32,10 @@ import {
   ShieldCheck,
   LogOut,
   School,
-  ArrowRight
+  ArrowRight,
+  Hash,
+  // Fix: Added missing CheckCircle icon import
+  CheckCircle
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -93,7 +96,7 @@ const App: React.FC = () => {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  const [newBook, setNewBook] = useState<Partial<Book>>({ title: '', year: 1, type: 'Buku Teks', stock: 0, price: 0 });
+  const [newBook, setNewBook] = useState<Partial<Book>>({ title: '', code: '', year: 1, type: 'Buku Teks', stock: 0, price: 0 });
   const [newMember, setNewMember] = useState<Partial<Member>>({ name: '', type: 'Guru', year: 1 });
 
   // --- Auto Save to LocalStorage ---
@@ -177,6 +180,7 @@ const App: React.FC = () => {
     const book: Book = {
       id: Math.random().toString(36).substr(2, 9),
       title: newBook.title!.toUpperCase(),
+      code: (newBook.code || '').toUpperCase(),
       year: newBook.year || 1,
       type: newBook.type || 'Buku Teks',
       stock: newBook.stock || 0,
@@ -184,7 +188,7 @@ const App: React.FC = () => {
       price: newBook.price || 0
     };
     setBooks(prev => [...prev, book]);
-    setNewBook({ title: '', year: 1, type: 'Buku Teks', stock: 0, price: 0 });
+    setNewBook({ title: '', code: '', year: 1, type: 'Buku Teks', stock: 0, price: 0 });
     setIsAddingBook(false);
   };
 
@@ -383,7 +387,7 @@ const App: React.FC = () => {
                     <button key={type} onClick={() => setInventoryType(type as BookType)} className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase transition-all ${inventoryType === type ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}>{type}</button>
                   ))}
                 </div>
-                <button onClick={() => { setIsAddingBook(true); setNewBook({ type: inventoryType, year: selectedYear }); }} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-indigo-900 flex items-center gap-2 transition-transform active:scale-95"><BookPlus size={18}/> TAMBAH BUKU</button>
+                <button onClick={() => { setIsAddingBook(true); setNewBook({ type: inventoryType, year: selectedYear, code: '' }); }} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-indigo-900 flex items-center gap-2 transition-transform active:scale-95"><BookPlus size={18}/> TAMBAH BUKU</button>
               </div>
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                 {YEARS.map(y => (
@@ -401,9 +405,15 @@ const App: React.FC = () => {
                           <button onClick={() => { if(confirm("Padam buku ini dari inventori?")) setBooks(prev => prev.filter(b => b.id !== book.id)); }} className="p-2 bg-rose-50 rounded-lg text-rose-400 hover:text-rose-600 transition-colors"><Trash2 size={14}/></button>
                         </div>
                       </div>
-                      <h4 className="font-black text-[12px] uppercase mb-4 leading-tight h-10 overflow-hidden">{book.title}</h4>
+                      <div className="mb-4">
+                        <h4 className="font-black text-[12px] uppercase leading-tight h-10 overflow-hidden text-indigo-950 mb-1">{book.title}</h4>
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg w-fit">
+                          <Hash size={10} />
+                          <span className="text-[9px] font-black uppercase tracking-wider">{book.code || 'TIADA KOD'}</span>
+                        </div>
+                      </div>
                       <div className="bg-slate-50 p-4 rounded-2xl flex justify-between items-center mb-2">
-                        <span className="text-[9px] font-black text-slate-400 italic">STOK</span>
+                        <span className="text-[9px] font-black text-slate-500 italic uppercase">STOK SEMASA</span>
                         <span className={`text-2xl font-black ${book.stock < 20 ? 'text-rose-600' : 'text-indigo-950'}`}>{book.stock}</span>
                       </div>
                     </div>
@@ -442,7 +452,7 @@ const App: React.FC = () => {
                   <div key={m.id} onClick={() => { setSelectedMemberDetail(m); setIsMemberDetailOpen(true); }} className="bg-white p-5 rounded-3xl border shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-400 transition-all group">
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black text-xl">{m.name.charAt(0)}</div>
-                      <div className="overflow-hidden"><h4 className="font-black text-[11px] uppercase truncate w-32 group-hover:text-indigo-600">{m.name}</h4><p className="text-[8px] font-black text-slate-400 uppercase italic mt-1">{getActiveLoans(m.name).length} PINJAMAN AKTIF</p></div>
+                      <div className="overflow-hidden"><h4 className="font-black text-[11px] uppercase truncate w-32 group-hover:text-indigo-600">{m.name}</h4><p className="text-[8px] font-black text-slate-500 uppercase italic mt-1">{getActiveLoans(m.name).length} PINJAMAN AKTIF</p></div>
                     </div>
                     <ChevronRight size={16} className="text-slate-200" />
                   </div>
@@ -459,23 +469,23 @@ const App: React.FC = () => {
               </div>
               <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl">
                 <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-400 border-b">
+                  <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-600 border-b">
                     <tr><th className="px-8 py-6">NAMA AHLI</th><th className="px-8 py-6">JUDUL BUKU</th><th className="px-8 py-6 text-center">NILAI GANTI</th><th className="px-8 py-6 text-right">TINDAKAN</th></tr>
                   </thead>
                   <tbody className="divide-y text-[10px] font-bold">
                     {transactions.filter(t => t.status === 'Rosak/Hilang' && t.resolutionStatus === 'Tertunggak').map(t => (
                       <tr key={t.id} className="hover:bg-slate-50">
-                        <td className="px-8 py-5 uppercase text-indigo-950">{t.userName}</td>
-                        <td className="px-8 py-5 uppercase text-slate-700">{t.bookTitle}</td>
-                        <td className="px-8 py-5 text-center text-rose-600">RM {t.fineAmount?.toFixed(2)}</td>
+                        <td className="px-8 py-5 uppercase text-indigo-950 font-black">{t.userName}</td>
+                        <td className="px-8 py-5 uppercase text-slate-900">{t.bookTitle}</td>
+                        <td className="px-8 py-5 text-center text-rose-700 font-black">RM {t.fineAmount?.toFixed(2)}</td>
                         <td className="px-8 py-5 text-right flex justify-end gap-2">
-                          <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[8px] uppercase hover:bg-emerald-700 transition-colors">TUNAI</button>
-                          <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[8px] uppercase hover:bg-indigo-700 transition-colors">GANTI BUKU</button>
+                          <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[8px] uppercase hover:bg-emerald-700 transition-colors shadow-sm">TUNAI</button>
+                          <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[8px] uppercase hover:bg-indigo-700 transition-colors shadow-sm">GANTI BUKU</button>
                         </td>
                       </tr>
                     ))}
                     {transactions.filter(t => t.status === 'Rosak/Hilang' && t.resolutionStatus === 'Tertunggak').length === 0 && (
-                      <tr><td colSpan={4} className="py-12 text-center opacity-30 italic font-black">Tiada kes kerosakan tertunggak buat masa ini.</td></tr>
+                      <tr><td colSpan={4} className="py-12 text-center opacity-40 italic font-black text-indigo-950">Tiada rekod kerosakan tertunggak.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -507,15 +517,15 @@ const App: React.FC = () => {
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">ID ADMIN</label>
-                    <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} />
+                    <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black text-indigo-950" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">KATA LALUAN</label>
-                    <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} />
+                    <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black text-indigo-950" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">NAMA SEKOLAH</label>
-                    <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} />
+                    <input type="text" className="w-full px-6 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-indigo-950" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} />
                   </div>
                   <button onClick={handleUpdateAdminSettings} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-lg border-b-4 border-indigo-900 mt-4 flex items-center justify-center gap-2 transition-transform active:scale-95"><Save size={18}/> KEMASKINI TETAPAN</button>
                 </div>
@@ -531,16 +541,16 @@ const App: React.FC = () => {
                </div>
                <div className="overflow-x-auto">
                  <table className="w-full text-left">
-                   <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-400 border-b">
+                   <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-600 border-b">
                      <tr><th className="px-8 py-6">PENGGUNA</th><th className="px-8 py-6">JUDUL BUKU</th><th className="px-8 py-6 text-center">JENIS REKOD</th><th className="px-8 py-6 text-right">TARIKH/MASA</th></tr>
                    </thead>
                    <tbody className="divide-y text-[10px] font-bold">
                      {transactions.map(t => (
                        <tr key={t.id} className="hover:bg-slate-50">
-                         <td className="px-8 py-5 uppercase text-indigo-950">{t.userName} <span className="opacity-60 text-[8px] text-indigo-600">({t.userType})</span></td>
-                         <td className="px-8 py-5 uppercase text-slate-700 truncate max-w-[200px]">{t.bookTitle}</td>
-                         <td className="px-8 py-5 text-center"><span className={`px-4 py-1 rounded-lg text-[8px] font-black uppercase border ${t.action === 'Pinjaman' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>{t.action}</span></td>
-                         <td className="px-8 py-5 text-slate-500 text-right italic">{t.timestamp}</td>
+                         <td className="px-8 py-5 uppercase text-indigo-950 font-black">{t.userName} <span className="opacity-70 text-[8px] text-indigo-700">({t.userType})</span></td>
+                         <td className="px-8 py-5 uppercase text-slate-900 truncate max-w-[200px]">{t.bookTitle}</td>
+                         <td className="px-8 py-5 text-center"><span className={`px-4 py-1 rounded-lg text-[8px] font-black uppercase border ${t.action === 'Pinjaman' ? 'bg-indigo-100 text-indigo-800 border-indigo-300' : 'bg-emerald-100 text-emerald-800 border-emerald-300'}`}>{t.action}</span></td>
+                         <td className="px-8 py-5 text-slate-700 text-right italic">{t.timestamp}</td>
                        </tr>
                      ))}
                    </tbody>
@@ -579,29 +589,33 @@ const App: React.FC = () => {
                 <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">JENIS BUKU</label>
                 <div className="grid grid-cols-2 gap-2">
                   {['Buku Teks', 'Buku Aktiviti'].map(t => (
-                    <button key={t} onClick={() => isAddingBook ? setNewBook({...newBook, type: t as BookType}) : setBookToEdit({...bookToEdit!, type: t as BookType})} className={`py-3 rounded-xl border-2 font-black text-[9px] uppercase transition-all ${(isAddingBook ? newBook.type : bookToEdit?.type) === t ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-400'}`}>{t}</button>
+                    <button key={t} onClick={() => isAddingBook ? setNewBook({...newBook, type: t as BookType}) : setBookToEdit({...bookToEdit!, type: t as BookType})} className={`py-3 rounded-xl border-2 font-black text-[9px] uppercase transition-all ${(isAddingBook ? newBook.type : bookToEdit?.type) === t ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-slate-50 text-slate-400'}`}>{t}</button>
                   ))}
                 </div>
               </div>
               <div className="space-y-1">
+                <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">KOD BUKU</label>
+                <input type="text" placeholder="E.G. BT101BM" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
+              </div>
+              <div className="space-y-1">
                 <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">JUDUL BUKU</label>
-                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px]" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
+                <input type="text" placeholder="E.G. BAHASA MELAYU TAHUN 1" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">TAHUN</label>
-                  <select className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px]" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>
+                  <select className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px] text-indigo-950" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>
                     {YEARS.map(y => <option key={y} value={y}>TAHUN {y}</option>)}
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-emerald-600 uppercase ml-2">HARGA (RM)</label>
-                  <input type="number" step="0.01" className="w-full px-5 py-4 rounded-xl border-2 bg-emerald-50 font-black text-[10px]" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
+                  <label className="text-[9px] font-black text-emerald-700 uppercase ml-2">HARGA (RM)</label>
+                  <input type="number" step="0.01" className="w-full px-5 py-4 rounded-xl border-2 bg-emerald-50 font-black text-[10px] text-emerald-900" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
                 </div>
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">STOK AWAL</label>
-                <input type="number" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px]" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
+                <input type="number" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px] text-indigo-950" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
               </div>
               <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl border-b-4 border-indigo-800 flex items-center justify-center gap-2 transition-transform active:scale-95"><Save size={18}/> SIMPAN REKOD</button>
             </div>
@@ -633,17 +647,17 @@ const App: React.FC = () => {
                   <div key={loan.id} className="p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-between group animate-in slide-in-from-right-4">
                     <p className="font-black text-indigo-950 text-[10px] uppercase truncate flex-1 pr-4">{loan.bookTitle}</p>
                     <div className="flex gap-2">
-                      <button onClick={() => handleAction(loan.bookId, 'Pemulangan', selectedMemberDetail.name, selectedMemberDetail.type)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-black text-[8px] uppercase transition-colors hover:bg-emerald-700">PULANG</button>
-                      <button onClick={() => handleAction(loan.bookId, 'Pulang Rosak/Hilang', selectedMemberDetail.name, selectedMemberDetail.type)} className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition-colors"><AlertTriangle size={16}/></button>
+                      <button onClick={() => handleAction(loan.bookId, 'Pemulangan', selectedMemberDetail.name, selectedMemberDetail.type)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-black text-[8px] uppercase transition-colors hover:bg-emerald-700 shadow-sm">PULANG</button>
+                      <button onClick={() => handleAction(loan.bookId, 'Pulang Rosak/Hilang', selectedMemberDetail.name, selectedMemberDetail.type)} className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition-colors shadow-sm"><AlertTriangle size={16}/></button>
                     </div>
                   </div>
                 ))}
-                {getActiveLoans(selectedMemberDetail.name).length === 0 && <p className="text-center py-10 opacity-30 text-[10px] font-black italic">Tiada pinjaman aktif.</p>}
+                {getActiveLoans(selectedMemberDetail.name).length === 0 && <p className="text-center py-10 opacity-40 text-[10px] font-black italic text-indigo-950">Tiada pinjaman aktif buat masa ini.</p>}
               </div>
             </div>
             <div className="p-6 bg-slate-50 border-t flex justify-between items-center">
-              <button onClick={() => { if(confirm("Padam akaun ahli ini selamanya?")) { setMembers(prev => prev.filter(m => m.id !== selectedMemberDetail.id)); setIsMemberDetailOpen(false); }}} className="text-rose-500 text-[9px] font-black uppercase flex items-center gap-2 hover:text-rose-700 transition-all"><Trash2 size={16}/> PADAM AHLI</button>
-              <button onClick={() => setIsMemberDetailOpen(false)} className="px-6 py-3 bg-white border rounded-xl text-[9px] font-black uppercase shadow-sm">TUTUP</button>
+              <button onClick={() => { if(confirm("Padam akaun ahli ini selamanya?")) { setMembers(prev => prev.filter(m => m.id !== selectedMemberDetail.id)); setIsMemberDetailOpen(false); }}} className="text-rose-500 text-[9px] font-black uppercase flex items-center gap-2 hover:text-rose-700 transition-all font-black"><Trash2 size={16}/> PADAM AHLI</button>
+              <button onClick={() => setIsMemberDetailOpen(false)} className="px-6 py-3 bg-white border rounded-xl text-[9px] font-black uppercase shadow-sm text-indigo-950">TUTUP</button>
             </div>
           </div>
         </div>
@@ -674,23 +688,31 @@ const App: React.FC = () => {
                     const s = new Set(selectedBooksToBorrow);
                     s.has(book.id) ? s.delete(book.id) : s.add(book.id);
                     setSelectedBooksToBorrow(s);
-                  }} className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex justify-between items-center ${isSelected ? 'bg-indigo-600 border-indigo-700 text-white' : 'bg-slate-50 hover:bg-indigo-50'}`}>
-                    <div className="overflow-hidden"><h4 className="font-black text-[10px] uppercase truncate">{book.title}</h4><p className="text-[8px] uppercase opacity-70">{book.type.toUpperCase()} • STOK: {book.stock}</p></div>
+                  }} className={`p-4 rounded-xl border-2 transition-all cursor-pointer flex justify-between items-center ${isSelected ? 'bg-indigo-600 border-indigo-700 text-white' : 'bg-slate-50 hover:bg-indigo-50 border-slate-100'}`}>
+                    <div className="overflow-hidden">
+                      <h4 className="font-black text-[10px] uppercase truncate">{book.title}</h4>
+                      <div className="flex items-center gap-2 mt-1 opacity-80">
+                         <span className="text-[8px] uppercase font-black">{book.type.toUpperCase()}</span>
+                         <span className="text-[8px] font-black bg-indigo-500/10 px-1.5 rounded">{book.code}</span>
+                         <span className="text-[8px] font-black">STOK: {book.stock}</span>
+                      </div>
+                    </div>
                     {isSelected && <CheckCircle size={16}/>}
                   </div>
                 );
               })}
               {books.filter(b => b.stock > 0 && b.year === borrowFilterYear).length === 0 && (
-                <div className="col-span-full py-10 text-center opacity-30 italic font-black text-[10px]">Tiada stok buku tersedia untuk Tahun {borrowFilterYear}.</div>
+                <div className="col-span-full py-10 text-center opacity-40 italic font-black text-[10px] text-indigo-950">Tiada stok buku tersedia untuk Tahun {borrowFilterYear}.</div>
               )}
             </div>
             <div className="p-8 border-t flex items-center justify-between bg-slate-50">
               <span className="text-[11px] font-black uppercase italic tracking-widest">{selectedBooksToBorrow.size} UNIT DIPILIH</span>
               <button onClick={() => {
-                Array.from(selectedBooksToBorrow).forEach(id => handleAction(id, 'Pinjaman', selectedMemberDetail.name, selectedMemberDetail.type, 1));
+                // Fix: Explicitly typed id as string to resolve unknown type inference issue
+                Array.from(selectedBooksToBorrow).forEach((id: string) => handleAction(id, 'Pinjaman', selectedMemberDetail.name, selectedMemberDetail.type, 1));
                 setIsBorrowModalOpen(false);
                 setSelectedBooksToBorrow(new Set());
-              }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-xl text-[10px] uppercase shadow-xl border-b-4 border-indigo-900 transition-transform active:scale-95" disabled={selectedBooksToBorrow.size === 0}>SAHKAN PINJAMAN</button>
+              }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-xl text-[10px] uppercase shadow-xl border-b-4 border-indigo-900 transition-transform active:scale-95 disabled:opacity-50" disabled={selectedBooksToBorrow.size === 0}>SAHKAN PINJAMAN</button>
             </div>
           </div>
         </div>
@@ -707,18 +729,18 @@ const App: React.FC = () => {
             <div className="space-y-6">
               <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
                 {['Guru', 'Murid'].map(t => (
-                  <button key={t} onClick={() => setNewMember({...newMember, type: t as UserType})} className={`flex-1 py-3 rounded-lg font-black text-[9px] uppercase transition-all ${newMember.type === t ? 'bg-indigo-600 text-white' : 'text-slate-400'}`}>{t}</button>
+                  <button key={t} onClick={() => setNewMember({...newMember, type: t as UserType})} className={`flex-1 py-3 rounded-lg font-black text-[9px] uppercase transition-all ${newMember.type === t ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>{t}</button>
                 ))}
               </div>
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">NAMA PENUH</label>
-                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px]" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
+                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
               </div>
               {newMember.type === 'Murid' && (
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">TAHUN / KELAS</label>
                   <div className="flex gap-2">
-                    {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${newMember.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-400'}`}>{y}</button>)}
+                    {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${newMember.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>{y}</button>)}
                   </div>
                 </div>
               )}
@@ -739,13 +761,13 @@ const App: React.FC = () => {
             <div className="space-y-6">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">NAMA PENUH</label>
-                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px]" value={memberToEdit.name} onChange={e => setMemberToEdit({...memberToEdit, name: e.target.value.toUpperCase()})} />
+                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={memberToEdit.name} onChange={e => setMemberToEdit({...memberToEdit, name: e.target.value.toUpperCase()})} />
               </div>
               {memberToEdit.type === 'Murid' && (
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-indigo-400 uppercase ml-2">TAHUN / KELAS</label>
                   <div className="flex gap-2">
-                    {YEARS.map(y => <button key={y} onClick={() => setMemberToEdit({...memberToEdit, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${memberToEdit.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-400'}`}>{y}</button>)}
+                    {YEARS.map(y => <button key={y} onClick={() => setMemberToEdit({...memberToEdit, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${memberToEdit.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>{y}</button>)}
                   </div>
                 </div>
               )}

@@ -16,6 +16,7 @@ export interface AdminSettings {
 export interface Book {
   id: string;
   title: string;
+  code: string; // Kod unik buku (e.g. BT001)
   year: number;
   type: BookType;
   stock: number;

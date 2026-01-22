@@ -14,13 +14,14 @@ const generateBooks = (): Book[] => {
   ];
 
   for (let year = 1; year <= 6; year++) {
-    subjects.forEach((sub) => {
+    subjects.forEach((sub, idx) => {
       const isUpper = year >= 4;
       
       if (['BM', 'BI', 'MAT', 'SC', 'PI', 'PM'].includes(sub.code)) {
         books.push({
           id: `${year}-bt-${sub.code.toLowerCase()}`,
           title: `Buku Teks ${sub.name} Tahun ${year}`,
+          code: `BT${year}${sub.code}${idx + 1}`,
           year: year,
           type: 'Buku Teks',
           stock: 100,
@@ -30,6 +31,7 @@ const generateBooks = (): Book[] => {
         books.push({
           id: `${year}-ba-${sub.code.toLowerCase()}`,
           title: `Buku Aktiviti ${sub.name} Tahun ${year}`,
+          code: `BA${year}${sub.code}${idx + 1}`,
           year: year,
           type: 'Buku Aktiviti',
           stock: 50,
@@ -42,6 +44,7 @@ const generateBooks = (): Book[] => {
         books.push({
           id: `${year}-bt-${sub.code.toLowerCase()}`,
           title: `Buku Teks ${sub.name} Tahun ${year}`,
+          code: `BT${year}${sub.code}${idx + 1}`,
           year: year,
           type: 'Buku Teks',
           stock: 100,
