@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Book, Transaction, UserType, TransactionStatus, ActionType, BookType, Member, AdminSettings, ResolutionMethod, ResolutionStatus } from './types';
 import { INITIAL_BOOKS, YEARS, CATEGORIES } from './constants';
@@ -591,7 +592,6 @@ const App: React.FC = () => {
           
           <div className="flex-1 w-full max-w-6xl mx-auto p-12 bg-white text-black font-serif print:p-0 print:max-w-none">
              <div className="border-b-4 border-black pb-4 mb-10 text-center relative text-black">
-                <div className="absolute top-0 left-0 w-20 h-20 opacity-10"><School size={80} className="text-black" /></div>
                 <h2 className="text-lg font-bold uppercase">{adminSettings.schoolName}</h2>
                 <h1 className="text-2xl font-black uppercase underline mt-2">REKOD ARKIB & TUNGGAKAN KEROSAKAN BUKU TEKS</h1>
                 <p className="text-[10px] font-bold uppercase mt-2 italic">DIJANA PADA: {new Date().toLocaleDateString('ms-MY')} • OLEH: {adminSettings.adminId}</p>
@@ -697,7 +697,6 @@ const App: React.FC = () => {
           
           <div className="flex-1 w-full max-w-6xl mx-auto p-12 bg-white text-black font-serif print:p-0 print:max-w-none">
              <div className="border-b-2 border-black pb-4 mb-8 text-center relative text-black">
-                <div className="absolute top-0 left-0 w-16 h-16"><School size={64} className="opacity-10 text-black" /></div>
                 <h2 className="text-lg font-bold uppercase">{adminSettings.schoolName}</h2>
                 <h1 className="text-xl font-black uppercase underline">REKOD PENERIMAAN / PEMULANGAN BUKU TEKS</h1>
                 <h3 className="text-md font-bold uppercase mt-1">TAHUN {selectedMemberDetail.year}</h3>
