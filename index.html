@@ -23,24 +23,35 @@
             scrollbar-width: none;
         }
         @media print {
-            nav, header, button, .md\:hidden, .fixed {
-                display: none !important;
+            /* Sembunyikan semua elemen kecuali yang bertanda print-area */
+            body * {
+                visibility: hidden;
             }
-            main {
-                margin: 0 !important;
-                padding: 0 !important;
+            .print-area, .print-area * {
+                visibility: visible;
             }
-            .bg-white {
-                border: none !important;
+            .print-area {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                visibility: visible !important;
+                display: block !important;
+            }
+            /* Pastikan tiada bayangan atau border kelabu yang mengganggu */
+            .print-area {
                 box-shadow: none !important;
+                border: none !important;
             }
-            table {
-                width: 100% !important;
-                font-size: 10px !important;
+            /* Pastikan input boleh nampak teksnya */
+            input::placeholder {
+                color: transparent !important;
             }
-            th, td {
-                border: 1px solid #e2e8f0 !important;
-                padding: 4px !important;
+            /* Hilangkan elemen navigasi semasa print */
+            .no-print {
+                display: none !important;
             }
         }
     </style>

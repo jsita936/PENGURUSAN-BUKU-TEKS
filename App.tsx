@@ -321,7 +321,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#f1f5f9] text-indigo-950 font-['Plus_Jakarta_Sans']">
       {/* Sidebar */}
-      <nav className="hidden md:flex w-72 bg-indigo-950 text-white flex-col shrink-0 shadow-2xl z-30">
+      <nav className="hidden md:flex w-72 bg-indigo-950 text-white flex-col shrink-0 shadow-2xl z-30 no-print">
         <div className="p-8 border-b border-white/5 flex items-center gap-4">
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg"><Library size={24} /></div>
           <div>
@@ -351,7 +351,7 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden no-print">
         <header className="h-20 bg-white border-b px-6 md:px-10 flex items-center justify-between shadow-sm z-20">
           <div className="flex items-center gap-4">
             <div className="md:hidden w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white"><Library size={20} /></div>
@@ -576,13 +576,13 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* --- MODALS --- */}
+      {/* --- PRINTABLE MODALS (Must have .print-area class) --- */}
 
-      {/* Printable Laporan Kos Ganti - PERSISTENT & GROUPED BY STUDENT */}
+      {/* Laporan Kos Ganti - INDIVIDUAL GROUPING & PERSISTENT ARCHIVE */}
       {isPrintDamageReportOpen && (
-        <div className="fixed inset-0 bg-white z-[600] flex flex-col overflow-y-auto no-scrollbar print:bg-white">
-          <div className="p-4 border-b flex justify-between items-center bg-rose-700 text-white print:hidden">
-            <div className="flex items-center gap-4"><FileText size={20} /><h3 className="text-sm font-black uppercase italic">Laporan Keseluruhan Kos Ganti</h3></div>
+        <div className="fixed inset-0 bg-white z-[600] flex flex-col overflow-y-auto no-scrollbar print-area">
+          <div className="p-4 border-b flex justify-between items-center bg-rose-700 text-white no-print">
+            <div className="flex items-center gap-4 text-white"><FileText size={20} /><h3 className="text-sm font-black uppercase italic">Laporan Keseluruhan Kos Ganti</h3></div>
             <div className="flex gap-4">
                <button onClick={() => window.print()} className="px-6 py-2 bg-white text-rose-700 rounded-xl font-black text-[10px] uppercase shadow-lg flex items-center gap-2 transition-transform active:scale-95"><Printer size={14}/> CETAK SEKARANG</button>
                <button onClick={() => setIsPrintDamageReportOpen(false)} className="p-2 text-white/50 hover:text-white transition-colors"><X size={24}/></button>
@@ -684,55 +684,10 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Member Detail Modal */}
-      {isMemberDetailOpen && selectedMemberDetail && (
-        <div className="fixed inset-0 bg-indigo-950/90 backdrop-blur-xl z-[200] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border-b-[15px] border-indigo-600 animate-in fade-in zoom-in duration-200">
-            <div className="p-8 border-b bg-indigo-50/50 flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl">{selectedMemberDetail.name.charAt(0)}</div>
-                <div><h3 className="text-xl font-black uppercase italic leading-none">{selectedMemberDetail.name}</h3><p className="text-[9px] font-black text-indigo-400 uppercase mt-2">{selectedMemberDetail.type} {selectedMemberDetail.year ? `• TAHUN ${selectedMemberDetail.year}` : ''}</p></div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => { setMemberToEdit({ ...selectedMemberDetail }); setIsEditingMember(true); }} className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg"><Edit2 size={20} /></button>
-                <button onClick={() => setIsMemberDetailOpen(false)} className="p-2 text-slate-300 hover:text-rose-500"><X size={20} /></button>
-              </div>
-            </div>
-            <div className="p-8 overflow-y-auto max-h-[60vh] space-y-4 no-scrollbar">
-              <div className="grid grid-cols-2 gap-2">
-                 <button onClick={() => { setBorrowFilterYear(selectedMemberDetail.year || 1); setIsBorrowModalOpen(true); }} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-md flex items-center justify-center gap-2 transition-transform active:scale-95"><Plus size={14}/> PINJAM BARU</button>
-                 {selectedMemberDetail.type === 'Murid' && (
-                   <button onClick={() => setIsPrintFormOpen(true)} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-md flex items-center justify-center gap-2 transition-transform active:scale-95"><FileText size={14}/> CETAK BORANG (REKOD)</button>
-                 )}
-              </div>
-              <div className="border-t pt-4">
-                <h4 className="text-[10px] font-black uppercase italic mb-4">Pinjaman Aktif</h4>
-                <div className="space-y-3">
-                  {getActiveLoans(selectedMemberDetail.name).map(loan => (
-                    <div key={loan.id} className="p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-between group animate-in slide-in-from-right-4">
-                      <p className="font-black text-indigo-950 text-[10px] uppercase truncate flex-1 pr-4">{loan.bookTitle}</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleAction(loan.bookId, 'Pemulangan', selectedMemberDetail.name, selectedMemberDetail.type)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-black text-[8px] uppercase transition-colors hover:bg-emerald-700 shadow-sm">PULANG</button>
-                        <button onClick={() => handleAction(loan.bookId, 'Pulang Rosak/Hilang', selectedMemberDetail.name, selectedMemberDetail.type)} className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition-colors shadow-sm"><AlertTriangle size={16}/></button>
-                      </div>
-                    </div>
-                  ))}
-                  {getActiveLoans(selectedMemberDetail.name).length === 0 && <p className="text-center py-10 opacity-40 text-[10px] font-black italic text-indigo-950 uppercase">Tiada pinjaman aktif.</p>}
-                </div>
-              </div>
-            </div>
-            <div className="p-6 bg-slate-50 border-t flex justify-between items-center">
-              <button onClick={() => { if(confirm("Padam ahli?")) { setMembers(prev => prev.filter(m => m.id !== selectedMemberDetail.id)); setIsMemberDetailOpen(false); }}} className="text-rose-500 text-[9px] font-black uppercase flex items-center gap-2 hover:text-rose-700 transition-all font-black"><Trash2 size={16}/> PADAM AHLI</button>
-              <button onClick={() => setIsMemberDetailOpen(false)} className="px-6 py-3 bg-white border rounded-xl text-[9px] font-black uppercase shadow-sm text-indigo-950">TUTUP</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Borang Rekod Murid - Live Editor & Color Coding */}
+      {/* Borang Rekod Pinjaman Murid - Live Editor & Color Coding */}
       {isPrintFormOpen && selectedMemberDetail && (
-        <div className="fixed inset-0 bg-white z-[500] flex flex-col overflow-y-auto no-scrollbar print:bg-white">
-          <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white print:hidden">
+        <div className="fixed inset-0 bg-white z-[500] flex flex-col overflow-y-auto no-scrollbar print-area">
+          <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white no-print">
             <div className="flex items-center gap-4 text-white"><FileText size={20} /><h3 className="text-sm font-black uppercase italic">Prapapar Borang Peminjaman</h3></div>
             <div className="flex gap-4">
                <button onClick={() => window.print()} className="px-6 py-2 bg-emerald-600 rounded-xl font-black text-[10px] uppercase shadow-lg flex items-center gap-2 transition-transform active:scale-95 text-white"><Printer size={14}/> CETAK SEKARANG</button>
@@ -749,8 +704,8 @@ const App: React.FC = () => {
              </div>
 
              <div className="grid grid-cols-2 gap-8 mb-8 text-black">
-                <div className="flex gap-2 items-center"><span className="font-bold uppercase text-xs">NAMA MURID:</span><span className="border-b border-black flex-1 uppercase text-sm font-bold pb-0.5">{selectedMemberDetail.name}</span></div>
-                <div className="flex gap-2 items-center"><span className="font-bold uppercase text-xs">SESI:</span><span className="border-b border-black flex-1 uppercase text-sm font-bold pb-0.5">{new Date().getFullYear()} / {new Date().getFullYear() + 1}</span></div>
+                <div className="flex gap-2 items-center"><span className="font-bold uppercase text-xs">NAMA MURID:</span><span className="border-b-2 border-black flex-1 uppercase text-sm font-bold pb-0.5">{selectedMemberDetail.name}</span></div>
+                <div className="flex gap-2 items-center"><span className="font-bold uppercase text-xs">SESI:</span><span className="border-b-2 border-black flex-1 uppercase text-sm font-bold pb-0.5">{new Date().getFullYear()} / {new Date().getFullYear() + 1}</span></div>
              </div>
 
              <table className="w-full border-collapse border-2 border-black text-[9px] text-black">
@@ -829,9 +784,125 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* --- ALL MODALS (RE-ADDED) --- */}
+      
+      {/* Member Detail Modal */}
+      {isMemberDetailOpen && selectedMemberDetail && (
+        <div className="fixed inset-0 bg-indigo-950/90 backdrop-blur-xl z-[200] flex items-center justify-center p-4 no-print">
+          <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border-b-[15px] border-indigo-600 animate-in fade-in zoom-in duration-200">
+            <div className="p-8 border-b bg-indigo-50/50 flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl">{selectedMemberDetail.name.charAt(0)}</div>
+                <div><h3 className="text-xl font-black uppercase italic leading-none">{selectedMemberDetail.name}</h3><p className="text-[9px] font-black text-indigo-400 uppercase mt-2">{selectedMemberDetail.type} {selectedMemberDetail.year ? `• TAHUN ${selectedMemberDetail.year}` : ''}</p></div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setMemberToEdit({ ...selectedMemberDetail }); setIsEditingMember(true); }} className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg"><Edit2 size={20} /></button>
+                <button onClick={() => setIsMemberDetailOpen(false)} className="p-2 text-slate-300 hover:text-rose-500"><X size={20} /></button>
+              </div>
+            </div>
+            <div className="p-8 overflow-y-auto max-h-[60vh] space-y-4 no-scrollbar">
+              <div className="grid grid-cols-2 gap-2">
+                 <button onClick={() => { setBorrowFilterYear(selectedMemberDetail.year || 1); setIsBorrowModalOpen(true); }} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-md flex items-center justify-center gap-2 transition-transform active:scale-95"><Plus size={14}/> PINJAM BARU</button>
+                 {selectedMemberDetail.type === 'Murid' && (
+                   <button onClick={() => setIsPrintFormOpen(true)} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-md flex items-center justify-center gap-2 transition-transform active:scale-95"><FileText size={14}/> CETAK BORANG</button>
+                 )}
+              </div>
+              <div className="border-t pt-4">
+                <h4 className="text-[10px] font-black uppercase italic mb-4">Pinjaman Aktif</h4>
+                <div className="space-y-3">
+                  {getActiveLoans(selectedMemberDetail.name).map(loan => (
+                    <div key={loan.id} className="p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-between group animate-in slide-in-from-right-4">
+                      <p className="font-black text-indigo-950 text-[10px] uppercase truncate flex-1 pr-4">{loan.bookTitle}</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleAction(loan.bookId, 'Pemulangan', selectedMemberDetail.name, selectedMemberDetail.type)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-black text-[8px] uppercase transition-colors hover:bg-emerald-700 shadow-sm">PULANG</button>
+                        <button onClick={() => handleAction(loan.bookId, 'Pulang Rosak/Hilang', selectedMemberDetail.name, selectedMemberDetail.type)} className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition-colors shadow-sm"><AlertTriangle size={16}/></button>
+                      </div>
+                    </div>
+                  ))}
+                  {getActiveLoans(selectedMemberDetail.name).length === 0 && <p className="text-center py-10 opacity-40 text-[10px] font-black italic text-indigo-950 uppercase">Tiada pinjaman aktif.</p>}
+                </div>
+              </div>
+            </div>
+            <div className="p-6 bg-slate-50 border-t flex justify-between items-center">
+              <button onClick={() => { if(confirm("Padam ahli?")) { setMembers(prev => prev.filter(m => m.id !== selectedMemberDetail.id)); setIsMemberDetailOpen(false); }}} className="text-rose-500 text-[9px] font-black uppercase flex items-center gap-2 hover:text-rose-700 transition-all font-black"><Trash2 size={16}/> PADAM AHLI</button>
+              <button onClick={() => setIsMemberDetailOpen(false)} className="px-6 py-3 bg-white border rounded-xl text-[9px] font-black uppercase shadow-sm text-indigo-950">TUTUP</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Member Modal */}
+      {isAddingMember && (
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 no-print">
+          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-b-[15px] border-indigo-600">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl font-black uppercase italic text-indigo-950 leading-tight">Daftar Ahli Baru</h3>
+              <button onClick={() => setIsAddingMember(false)} className="p-2 text-slate-300 hover:text-rose-500"><X size={24}/></button>
+            </div>
+            <div className="space-y-6">
+              <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
+                {['Guru', 'Murid'].map(t => (
+                  <button key={t} onClick={() => setNewMember({...newMember, type: t as UserType})} className={`flex-1 py-3 rounded-lg font-black text-[9px] uppercase transition-all ${newMember.type === t ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>{t}</button>
+                ))}
+              </div>
+              <input type="text" placeholder="NAMA PENUH" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
+              {newMember.type === 'Murid' && (
+                <div className="flex gap-2">
+                  {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${newMember.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>{y}</button>)}
+                </div>
+              )}
+              <button onClick={handleAddMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl border-b-4 border-indigo-800 flex items-center justify-center gap-2"><UserPlus size={18}/> DAFTARKAN AHLI</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {isEditingMember && memberToEdit && (
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4 no-print">
+          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-b-[15px] border-indigo-600">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl font-black uppercase italic text-indigo-950 leading-tight">Edit Maklumat Ahli</h3>
+              <button onClick={() => { setIsEditingMember(false); setMemberToEdit(null); }} className="p-2 text-slate-300 hover:text-rose-500"><X size={24}/></button>
+            </div>
+            <div className="space-y-6">
+              <input type="text" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={memberToEdit.name} onChange={e => setMemberToEdit({...memberToEdit, name: e.target.value.toUpperCase()})} />
+              {memberToEdit.type === 'Murid' && (
+                <div className="flex gap-2">
+                  {YEARS.map(y => <button key={y} onClick={() => setMemberToEdit({...memberToEdit, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${memberToEdit.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>{y}</button>)}
+                </div>
+              )}
+              <button onClick={handleUpdateMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl border-b-4 border-indigo-800 flex items-center justify-center gap-2 transition-transform active:scale-95"><Save size={18}/> KEMASKINI MAKLUMAT</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Book Modal */}
+      {(isAddingBook || isEditingBook) && (
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4 no-print">
+          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-b-[15px] border-indigo-600">
+            <div className="flex justify-between items-center mb-8">
+              <h3 className="text-xl font-black uppercase italic text-indigo-950 leading-tight">{isAddingBook ? 'Daftar Buku Baru' : 'Edit Maklumat Buku'}</h3>
+              <button onClick={() => { setIsAddingBook(false); setIsEditingBook(false); }} className="p-2 text-slate-300 hover:text-rose-500"><X size={24}/></button>
+            </div>
+            <div className="space-y-6">
+              <input type="text" placeholder="KOD BUKU" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
+              <input type="text" placeholder="JUDUL BUKU" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
+              <div className="grid grid-cols-2 gap-4">
+                <select className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px] text-indigo-950" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y}>TAHUN {y}</option>)}</select>
+                <input type="number" step="0.01" placeholder="HARGA (RM)" className="w-full px-5 py-4 rounded-xl border-2 bg-emerald-50 font-black text-[10px] text-emerald-900" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
+              </div>
+              <input type="number" placeholder="STOK AWAL" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px] text-indigo-950" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
+              <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl border-b-4 border-indigo-800 flex items-center justify-center gap-2 transition-transform active:scale-95"><Save size={18}/> SIMPAN REKOD</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Borrow Modal */}
       {isBorrowModalOpen && selectedMemberDetail && (
-        <div className="fixed inset-0 bg-indigo-950/95 backdrop-blur-xl z-[300] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-indigo-950/95 backdrop-blur-xl z-[300] flex items-center justify-center p-4 no-print">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl flex flex-col border-b-[15px] border-indigo-600 text-indigo-950 animate-in zoom-in duration-300">
             <div className="p-8 border-b flex justify-between items-center">
               <div><h3 className="text-xl font-black uppercase italic leading-tight">Pilih Buku Pinjaman</h3><p className="text-[9px] font-black text-indigo-600 uppercase mt-1">{selectedMemberDetail.name}</p></div>
@@ -865,75 +936,6 @@ const App: React.FC = () => {
             <div className="p-8 border-t flex items-center justify-between bg-slate-50">
               <span className="text-[11px] font-black uppercase italic tracking-widest">{selectedBooksToBorrow.size} UNIT DIPILIH</span>
               <button onClick={() => { Array.from(selectedBooksToBorrow).forEach((id: any) => handleAction(id, 'Pinjaman', selectedMemberDetail.name, selectedMemberDetail.type, 1)); setIsBorrowModalOpen(false); setSelectedBooksToBorrow(new Set()); }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-xl text-[10px] uppercase shadow-xl border-b-4 border-indigo-900 transition-transform active:scale-95 disabled:opacity-50" disabled={selectedBooksToBorrow.size === 0}>SAHKAN PINJAMAN</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Adding/Editing Book Modal */}
-      {(isAddingBook || isEditingBook) && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-b-[15px] border-indigo-600">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black uppercase italic text-indigo-950 leading-tight">{isAddingBook ? 'Daftar Buku Baru' : 'Edit Maklumat Buku'}</h3>
-              <button onClick={() => { setIsAddingBook(false); setIsEditingBook(false); }} className="p-2 text-slate-300 hover:text-rose-500"><X size={24}/></button>
-            </div>
-            <div className="space-y-6">
-              <input type="text" placeholder="KOD BUKU" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
-              <input type="text" placeholder="JUDUL BUKU" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
-              <div className="grid grid-cols-2 gap-4">
-                <select className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px] text-indigo-950" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y}>TAHUN {y}</option>)}</select>
-                <input type="number" step="0.01" placeholder="HARGA (RM)" className="w-full px-5 py-4 rounded-xl border-2 bg-emerald-50 font-black text-[10px] text-emerald-900" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
-              </div>
-              <input type="number" placeholder="STOK AWAL" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black text-[10px] text-indigo-950" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
-              <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl border-b-4 border-indigo-800 flex items-center justify-center gap-2 transition-transform active:scale-95"><Save size={18}/> SIMPAN REKOD</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Member Modal */}
-      {isAddingMember && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-b-[15px] border-indigo-600">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black uppercase italic text-indigo-950 leading-tight">Daftar Ahli Baru</h3>
-              <button onClick={() => setIsAddingMember(false)} className="p-2 text-slate-300 hover:text-rose-500"><X size={24}/></button>
-            </div>
-            <div className="space-y-6">
-              <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
-                {['Guru', 'Murid'].map(t => (
-                  <button key={t} onClick={() => setNewMember({...newMember, type: t as UserType})} className={`flex-1 py-3 rounded-lg font-black text-[9px] uppercase transition-all ${newMember.type === t ? 'bg-indigo-600 text-white' : 'text-slate-500'}`}>{t}</button>
-                ))}
-              </div>
-              <input type="text" placeholder="NAMA PENUH" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
-              {newMember.type === 'Murid' && (
-                <div className="flex gap-2">
-                  {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${newMember.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>{y}</button>)}
-                </div>
-              )}
-              <button onClick={handleAddMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl border-b-4 border-indigo-800 flex items-center justify-center gap-2"><UserPlus size={18}/> DAFTARKAN AHLI</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Member Modal */}
-      {isEditingMember && memberToEdit && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 shadow-2xl border-b-[15px] border-indigo-600">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black uppercase italic text-indigo-950 leading-tight">Edit Maklumat Ahli</h3>
-              <button onClick={() => { setIsEditingMember(false); setMemberToEdit(null); }} className="p-2 text-slate-300 hover:text-rose-500"><X size={24}/></button>
-            </div>
-            <div className="space-y-6">
-              <input type="text" className="w-full px-5 py-4 rounded-xl border-2 bg-slate-50 font-black uppercase text-[10px] text-indigo-950" value={memberToEdit.name} onChange={e => setMemberToEdit({...memberToEdit, name: e.target.value.toUpperCase()})} />
-              {memberToEdit.type === 'Murid' && (
-                <div className="flex gap-2">
-                  {YEARS.map(y => <button key={y} onClick={() => setMemberToEdit({...memberToEdit, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${memberToEdit.year === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>{y}</button>)}
-                </div>
-              )}
-              <button onClick={handleUpdateMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl border-b-4 border-indigo-800 flex items-center justify-center gap-2 transition-transform active:scale-95"><Save size={18}/> KEMASKINI MAKLUMAT</button>
             </div>
           </div>
         </div>
