@@ -96,6 +96,7 @@ const App: React.FC = () => {
   const [selectedBooksToBorrow, setSelectedBooksToBorrow] = useState<Set<string>>(new Set());
   const [isPrintFormOpen, setIsPrintFormOpen] = useState(false);
   const [isPrintDamageReportOpen, setIsPrintDamageReportOpen] = useState(false);
+  const [isPrintHistoryOpen, setIsPrintHistoryOpen] = useState(false);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
@@ -481,7 +482,7 @@ const App: React.FC = () => {
               <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl">
                  <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
                     <h3 className="text-xl font-black text-indigo-900 uppercase italic">LOG {MONTHS[historyMonth].toUpperCase()}</h3>
-                    <button className="px-5 py-2.5 bg-white border text-indigo-600 rounded-xl font-black text-[10px] uppercase flex items-center gap-2"><Printer size={16}/> CETAK</button>
+                    <button onClick={() => setIsPrintHistoryOpen(true)} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase flex items-center gap-2 shadow-lg transition-transform active:scale-95"><Printer size={16}/> CETAK</button>
                  </div>
                  <div className="overflow-x-auto">
                    <table className="w-full text-left">
@@ -568,15 +569,15 @@ const App: React.FC = () => {
                 <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Tetapan Pentadbir</h3>
                 <div className="space-y-6 font-bold">
                   <div>
-                    <label className="text-[10px] uppercase text-slate-400 mb-2 block font-black">ID PENGGUNA</label>
+                    <label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">ID PENGGUNA</label>
                     <input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase text-slate-400 mb-2 block font-black">KATA LALUAN</label>
+                    <label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">KATA LALUAN</label>
                     <input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase text-slate-400 mb-2 block font-black">NAMA SEKOLAH</label>
+                    <label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">NAMA SEKOLAH</label>
                     <input type="text" className="w-full p-4 border-2 rounded-xl uppercase text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} />
                   </div>
                   <button onClick={() => { localStorage.setItem('spbt_settings', JSON.stringify(adminSettings)); alert("Simpan!"); }} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase shadow-xl font-black tracking-widest hover:bg-indigo-700">KEMASKINI TETAPAN</button>
@@ -587,7 +588,7 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* --- LAPORAN KOS GANTI (FORMAT ASAL: TAHUN & MURID) --- */}
+      {/* --- LAPORAN KOS GANTI --- */}
       {isPrintDamageReportOpen && (
         <div className="fixed inset-0 bg-white z-[600] flex flex-col overflow-y-auto no-scrollbar print-area" style={{ fontFamily: 'Arial, sans-serif' }}>
           <div className="p-4 border-b flex justify-between items-center bg-rose-700 text-white no-print">
@@ -692,7 +693,7 @@ const App: React.FC = () => {
                     <th className="border-2 border-black p-1 w-16 uppercase text-black">KOD</th>
                     <th className="border-2 border-black p-1 text-left uppercase text-black">NAMA BUKU</th>
                     <th className="border-2 border-black p-1 w-12 uppercase text-black">RM</th>
-                    <th className="border-2 border-black p-1 w-56 uppercase text-black">NO SIRI</th>
+                    <th className="border-2 border-black p-1 w-[280px] uppercase text-black">NO SIRI</th>
                     <th className="border-2 border-black p-1 w-20 uppercase text-black">TERIMA</th>
                     <th className="border-2 border-black p-1 w-20 uppercase text-black">PULANG</th>
                     <th className="border-2 border-black p-1 uppercase text-black">STATUS</th>
@@ -737,6 +738,50 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* --- PAPARAN CETAK LOG REKOD --- */}
+      {isPrintHistoryOpen && (
+        <div className="fixed inset-0 bg-white z-[700] flex flex-col overflow-y-auto no-scrollbar print-area" style={{ fontFamily: 'Arial, sans-serif' }}>
+          <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white no-print">
+            <h3 className="text-sm font-black uppercase italic">Prapapar Log Rekod {MONTHS[historyMonth].toUpperCase()}</h3>
+            <div className="flex gap-4">
+               <button onClick={() => window.print()} className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg"><Printer size={14} className="inline mr-2"/> CETAK SEKARANG</button>
+               <button onClick={() => setIsPrintHistoryOpen(false)} className="p-2 text-white/50"><X size={24}/></button>
+            </div>
+          </div>
+          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black print:p-0">
+             <div className="border-b-4 border-black pb-4 mb-10 text-center">
+                <h2 className="text-lg font-bold uppercase text-black">{adminSettings.schoolName}</h2>
+                <h1 className="text-2xl font-black uppercase underline mt-2 text-black">LOG REKOD TRANSAKSI BUKU TEKS - {MONTHS[historyMonth].toUpperCase()} {new Date().getFullYear()}</h1>
+             </div>
+             <table className="w-full border-collapse border-2 border-black text-[10px] text-black">
+                <thead>
+                  <tr className="bg-slate-100">
+                    <th className="border-2 border-black p-3 text-center w-12 uppercase">BIL</th>
+                    <th className="border-2 border-black p-3 text-left uppercase">NAMA PENGGUNA</th>
+                    <th className="border-2 border-black p-3 text-left uppercase">JUDUL BUKU</th>
+                    <th className="border-2 border-black p-3 text-center uppercase">TINDAKAN</th>
+                    <th className="border-2 border-black p-3 text-right uppercase">TARIKH & MASA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map((t, idx) => (
+                    <tr key={t.id}>
+                      <td className="border-2 border-black p-3 text-center font-bold">{idx + 1}</td>
+                      <td className="border-2 border-black p-3 font-black uppercase">{t.userName}</td>
+                      <td className="border-2 border-black p-3 font-bold uppercase">{t.bookTitle}</td>
+                      <td className="border-2 border-black p-3 text-center font-black uppercase italic">{t.action}</td>
+                      <td className="border-2 border-black p-3 text-right font-medium">{t.timestamp}</td>
+                    </tr>
+                  ))}
+                  {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).length === 0 && (
+                    <tr><td colSpan={5} className="border-2 border-black p-10 text-center font-black uppercase italic">Tiada rekod untuk bulan ini.</td></tr>
+                  )}
+                </tbody>
+             </table>
+          </div>
+        </div>
+      )}
+
       {/* --- MODAL BUTIRAN AHLI --- */}
       {isMemberDetailOpen && selectedMemberDetail && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-xl z-[200] flex items-center justify-center p-4 no-print">
@@ -753,8 +798,8 @@ const App: React.FC = () => {
             </div>
             <div className="p-8 overflow-y-auto max-h-[60vh] space-y-4 no-scrollbar">
               <div className="grid grid-cols-2 gap-2">
-                 <button onClick={() => { setBorrowFilterYear(selectedMemberDetail.year || 1); setIsBorrowModalOpen(true); }} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-lg"><Plus className="inline mr-1" size={14}/> PINJAM BARU</button>
-                 {selectedMemberDetail.type === 'Murid' && <button onClick={() => setIsPrintFormOpen(true)} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-lg"><FileText className="inline mr-1" size={14}/> CETAK BORANG</button>}
+                 <button onClick={() => { setBorrowFilterYear(selectedMemberDetail.year || 1); setIsBorrowModalOpen(true); }} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-lg transition-transform active:scale-95"><Plus className="inline mr-1" size={14}/> PINJAM BARU</button>
+                 {selectedMemberDetail.type === 'Murid' && <button onClick={() => setIsPrintFormOpen(true)} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-lg transition-transform active:scale-95"><FileText className="inline mr-1" size={14}/> CETAK BORANG</button>}
               </div>
               <div className="border-t pt-4">
                 <h4 className="text-[10px] font-black uppercase italic text-indigo-950 mb-4">Pinjaman Aktif</h4>
@@ -800,13 +845,13 @@ const App: React.FC = () => {
                   <select className="w-full p-4 border-2 rounded-xl font-black text-[10px] bg-slate-50 outline-none" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y}>TAHUN {y}</option>)}</select>
                 </div>
                 <div>
-                  <label className="text-[11px] font-black uppercase text-emerald-600 mb-1 block ml-1">HARGA BUKU (RM)</label>
-                  <input type="number" step="0.01" className="w-full p-4 border-2 border-emerald-200 rounded-xl font-black text-[10px] bg-emerald-50 text-emerald-700 outline-none" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
+                  <label className="text-[12px] font-black uppercase text-emerald-600 mb-1 block ml-1 border-b-2 border-emerald-100">HARGA BUKU (RM)</label>
+                  <input type="number" step="0.01" className="w-full p-4 border-2 border-emerald-200 rounded-xl font-black text-[11px] bg-emerald-50 text-emerald-700 outline-none" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
                 </div>
               </div>
               <div>
-                <label className="text-[11px] font-black uppercase text-blue-600 mb-1 block ml-1">JUMLAH STOK (UNIT)</label>
-                <input type="number" className="w-full p-4 border-2 border-blue-200 rounded-xl font-black text-[10px] bg-blue-50 text-blue-900 outline-none focus:border-blue-600" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
+                <label className="text-[12px] font-black uppercase text-blue-600 mb-1 block ml-1 border-b-2 border-blue-100">JUMLAH STOK (UNIT)</label>
+                <input type="number" className="w-full p-4 border-2 border-blue-200 rounded-xl font-black text-[11px] bg-blue-50 text-blue-900 outline-none focus:border-blue-600" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
               </div>
               <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase font-black shadow-xl tracking-widest transition-transform active:scale-95">SIMPAN DATA</button>
               <button onClick={() => { setIsAddingBook(false); setIsEditingBook(false); }} className="w-full py-2 text-slate-400 uppercase text-[9px] font-bold">BATAL</button>
