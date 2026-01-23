@@ -94,6 +94,7 @@ const App: React.FC = () => {
   const [selectedBooksToBorrow, setSelectedBooksToBorrow] = useState<Set<string>>(new Set());
   const [isPrintFormOpen, setIsPrintFormOpen] = useState(false);
   const [isPrintDamageReportOpen, setIsPrintDamageReportOpen] = useState(false);
+  const [isPrintHistoryOpen, setIsPrintHistoryOpen] = useState(false);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
@@ -468,10 +469,10 @@ const App: React.FC = () => {
                    <button key={m} onClick={() => setHistoryMonth(idx)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${historyMonth === idx ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}>{m}</button>
                  ))}
               </div>
-              <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl print-area">
+              <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl no-print">
                  <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
                     <div><h3 className="text-2xl font-black text-indigo-900 uppercase italic leading-tight">LOG TRANSAKSI: {MONTHS[historyMonth].toUpperCase()}</h3><p className="text-[9px] font-black text-slate-400 uppercase italic mt-1">Laporan bulanan arkib sekolah</p></div>
-                    <button onClick={() => window.print()} className="no-print px-6 py-3 bg-white border border-indigo-100 text-indigo-600 rounded-xl font-black text-[10px] uppercase shadow-md flex items-center gap-2 hover:bg-indigo-50 transition-colors"><Printer size={16}/> CETAK BULAN INI</button>
+                    <button onClick={() => setIsPrintHistoryOpen(true)} className="px-6 py-3 bg-white border border-indigo-100 text-indigo-600 rounded-xl font-black text-[10px] uppercase shadow-md flex items-center gap-2 hover:bg-indigo-50 transition-colors"><Printer size={16}/> PRAPAPAR CETAK</button>
                  </div>
                  <div className="overflow-x-auto">
                    <table className="w-full text-left">
@@ -487,6 +488,7 @@ const App: React.FC = () => {
                            <td className="px-8 py-5 text-slate-700 text-right italic">{t.timestamp}</td>
                          </tr>
                        ))}
+                       {filteredTransactions.length === 0 && <tr><td colSpan={4} className="px-8 py-10 text-center opacity-30 uppercase font-black italic">Tiada rekod untuk bulan ini.</td></tr>}
                      </tbody>
                    </table>
                  </div>
@@ -511,7 +513,7 @@ const App: React.FC = () => {
                   <button key={s} onClick={() => setDamageFilterStatus(s)} className={`px-5 py-2 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${damageFilterStatus === s ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-400 border-slate-100 hover:bg-slate-50'}`}>{s}</button>
                 ))}
               </div>
-              <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl">
+              <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl no-print">
                 <table className="w-full text-left">
                   <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-600 border-b">
                     <tr><th className="px-8 py-6">NAMA AHLI</th><th className="px-8 py-6">JUDUL BUKU</th><th className="px-8 py-6 text-center">NILAI GANTI</th><th className="px-8 py-6 text-right">TINDAKAN / STATUS</th></tr>
@@ -525,8 +527,8 @@ const App: React.FC = () => {
                         <td className="px-8 py-5 text-right flex justify-end gap-2">
                           {t.resolutionStatus === 'Tertunggak' ? (
                             <>
-                              <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[8px] uppercase hover:bg-emerald-700 shadow-sm font-black transition-transform active:scale-90">TUNAI</button>
-                              <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[8px] uppercase hover:bg-indigo-700 shadow-sm font-black transition-transform active:scale-90">GANTI BUKU</button>
+                              <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-[8px] uppercase hover:bg-emerald-700 shadow-sm font-black transition-transform active:scale-95">TUNAI</button>
+                              <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[8px] uppercase hover:bg-indigo-700 shadow-sm font-black transition-transform active:scale-95">GANTI BUKU</button>
                             </>
                           ) : (
                             <span className="px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-[8px] uppercase font-black border border-slate-200">SELESAI ({t.resolutionMethod})</span>
@@ -570,6 +572,66 @@ const App: React.FC = () => {
       </main>
 
       {/* --- PRINTABLE AREAS --- */}
+
+      {isPrintHistoryOpen && (
+        <div className="fixed inset-0 bg-white z-[700] flex flex-col overflow-y-auto no-scrollbar print-area" style={{ fontFamily: 'Arial, sans-serif' }}>
+          <div className="p-4 border-b flex justify-between items-center bg-indigo-900 text-white no-print">
+            <div className="flex items-center gap-4 text-white"><FileText size={20} /><h3 className="text-sm font-black uppercase italic">Prapapar Laporan Transaksi Bulanan</h3></div>
+            <div className="flex gap-4">
+               <button onClick={() => window.print()} className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg flex items-center gap-2 transition-transform active:scale-95"><Printer size={14}/> CETAK SEKARANG</button>
+               <button onClick={() => setIsPrintHistoryOpen(false)} className="p-2 text-white/50 hover:text-white transition-colors"><X size={24}/></button>
+            </div>
+          </div>
+          
+          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black print:p-0 print:max-w-none">
+             <div className="border-b-4 border-black pb-4 mb-10 text-center text-black">
+                <h2 className="text-lg font-bold uppercase tracking-tight">{adminSettings.schoolName}</h2>
+                <h1 className="text-2xl font-black uppercase underline mt-2">LAPORAN TRANSAKSI BULANAN SPBT</h1>
+                <h3 className="text-md font-black uppercase mt-1">BULAN: {MONTHS[historyMonth].toUpperCase()} {new Date().getFullYear()}</h3>
+                <p className="text-[10px] font-bold uppercase mt-2 italic">DIJANA PADA: {new Date().toLocaleDateString('ms-MY')} • OLEH: PENTADBIR SPBT</p>
+             </div>
+
+             <table className="w-full border-collapse border-2 border-black text-[9px] text-black">
+                <thead>
+                  <tr className="bg-slate-50">
+                    <th className="border-2 border-black p-2 w-10 text-center uppercase font-black">BIL</th>
+                    <th className="border-2 border-black p-2 w-32 text-center uppercase font-black">TARIKH/MASA</th>
+                    <th className="border-2 border-black p-2 text-left uppercase font-black">NAMA PENGGUNA</th>
+                    <th className="border-2 border-black p-2 w-24 text-center uppercase font-black">JENIS</th>
+                    <th className="border-2 border-black p-2 text-left uppercase font-black">JUDUL BUKU</th>
+                    <th className="border-2 border-black p-2 w-24 text-center uppercase font-black">STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredTransactions.map((t, idx) => (
+                    <tr key={t.id}>
+                      <td className="border-2 border-black p-2 text-center font-bold">{idx + 1}</td>
+                      <td className="border-2 border-black p-2 text-center text-[8px]">{t.timestamp}</td>
+                      <td className="border-2 border-black p-2 uppercase font-bold">{t.userName} <span className="text-[7px] italic opacity-70">({t.userType})</span></td>
+                      <td className="border-2 border-black p-2 text-center font-black text-[8px]">{t.action}</td>
+                      <td className="border-2 border-black p-2 uppercase">{t.bookTitle}</td>
+                      <td className="border-2 border-black p-2 text-center uppercase font-black text-[8px]">{t.status}</td>
+                    </tr>
+                  ))}
+                  {filteredTransactions.length === 0 && (
+                    <tr><td colSpan={6} className="border-2 border-black p-10 text-center uppercase font-black italic opacity-40">Tiada rekod transaksi untuk bulan ini.</td></tr>
+                  )}
+                </tbody>
+             </table>
+
+             <div className="mt-20 grid grid-cols-2 gap-20 text-center text-black print:break-inside-avoid">
+                <div>
+                   <p className="text-[11px] font-black underline mb-16 uppercase">Disediakan Oleh:</p>
+                   <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black">GURU UNIT SPBT</p>
+                </div>
+                <div>
+                   <p className="text-[11px] font-black underline mb-16 uppercase">Disahkan Oleh:</p>
+                   <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black">PENTADBIR SEKOLAH</p>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
 
       {isPrintDamageReportOpen && (
         <div className="fixed inset-0 bg-white z-[600] flex flex-col overflow-y-auto no-scrollbar print-area" style={{ fontFamily: 'Arial, sans-serif' }}>
@@ -648,7 +710,7 @@ const App: React.FC = () => {
                  </div>
                );
              })}
-             <div className="mt-20 grid grid-cols-2 gap-20 text-center text-black">
+             <div className="mt-20 grid grid-cols-2 gap-20 text-center text-black print:break-inside-avoid">
                 <div className="print:break-inside-avoid">
                    <p className="text-[11px] font-black underline mb-16 uppercase">Disediakan Oleh:</p>
                    <p className="border-t-2 border-black pt-2 text-[11px] uppercase font-black">GURU UNIT SPBT</p>
