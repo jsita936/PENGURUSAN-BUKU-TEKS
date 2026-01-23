@@ -621,7 +621,13 @@ const App: React.FC = () => {
                  <div key={y} className="mb-12">
                    <h3 className="text-lg font-black uppercase border-b-2 border-black mb-4 bg-slate-50 p-2 text-black">TAHUN {y}</h3>
                    {Object.entries(studentGroups).map(([name, list]) => {
-                     const total = list.reduce((acc, curr) => acc + (curr.fineAmount || 0), 0);
+                     // Logik: Hanya kira bayaran jika masih Tertunggak atau Selesai via Tunai. 
+                     // Penggantian via Buku dikira 0.00
+                     const total = list.reduce((acc, curr) => {
+                       if (curr.resolutionStatus === 'Selesai' && curr.resolutionMethod === 'Buku') return acc;
+                       return acc + (curr.fineAmount || 0);
+                     }, 0);
+                     
                      const isSettled = list.every(t => t.resolutionStatus === 'Selesai');
                      return (
                        <div key={name} className="mb-8 border-2 border-black p-4">
@@ -639,16 +645,21 @@ const App: React.FC = () => {
                              </tr>
                            </thead>
                            <tbody>
-                             {list.map((t, idx) => (
-                               <tr key={t.id}>
-                                 <td className="border-2 border-black p-2 text-center font-bold text-black">{idx + 1}</td>
-                                 <td className="border-2 border-black p-2 uppercase font-bold text-black">{t.bookTitle}</td>
-                                 <td className="border-2 border-black p-2 text-center font-black text-black">{t.fineAmount?.toFixed(2)}</td>
-                                 <td className={`border-2 border-black p-2 text-center uppercase font-black text-[9px] ${t.resolutionStatus === 'Selesai' ? 'text-green-600' : 'text-red-600'}`}>
-                                   {t.resolutionStatus === 'Selesai' ? `LUNAS (${t.resolutionMethod})` : 'TERTUNGGAK'}
-                                 </td>
-                               </tr>
-                             ))}
+                             {list.map((t, idx) => {
+                               const showPrice = t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Buku' ? 0 : (t.fineAmount || 0);
+                               return (
+                                <tr key={t.id}>
+                                  <td className="border-2 border-black p-2 text-center font-bold text-black">{idx + 1}</td>
+                                  <td className="border-2 border-black p-2 uppercase font-bold text-black">{t.bookTitle}</td>
+                                  <td className="border-2 border-black p-2 text-center font-black text-black">
+                                    {showPrice === 0 ? '0.00' : showPrice.toFixed(2)}
+                                  </td>
+                                  <td className={`border-2 border-black p-2 text-center uppercase font-black text-[9px] ${t.resolutionStatus === 'Selesai' ? 'text-green-600' : 'text-red-600'}`}>
+                                    {t.resolutionStatus === 'Selesai' ? `LUNAS (${t.resolutionMethod})` : 'TERTUNGGAK'}
+                                  </td>
+                                </tr>
+                               );
+                             })}
                              <tr className="bg-slate-50 font-black">
                                <td colSpan={2} className="border-2 border-black p-3 text-right uppercase text-black">JUMLAH KOS GANTI:</td>
                                <td className="border-2 border-black p-3 text-center bg-white text-black underline font-black">RM {total.toFixed(2)}</td>
@@ -756,25 +767,25 @@ const App: React.FC = () => {
              <table className="w-full border-collapse border-2 border-black text-[10px] text-black">
                 <thead>
                   <tr className="bg-slate-100">
-                    <th className="border-2 border-black p-3 text-center w-12 uppercase">BIL</th>
-                    <th className="border-2 border-black p-3 text-left uppercase">NAMA PENGGUNA</th>
-                    <th className="border-2 border-black p-3 text-left uppercase">JUDUL BUKU</th>
-                    <th className="border-2 border-black p-3 text-center uppercase">TINDAKAN</th>
-                    <th className="border-2 border-black p-3 text-right uppercase">TARIKH & MASA</th>
+                    <th className="border-2 border-black p-3 text-center w-12 uppercase text-black">BIL</th>
+                    <th className="border-2 border-black p-3 text-left uppercase text-black">NAMA PENGGUNA</th>
+                    <th className="border-2 border-black p-3 text-left uppercase text-black">JUDUL BUKU</th>
+                    <th className="border-2 border-black p-3 text-center uppercase text-black">TINDAKAN</th>
+                    <th className="border-2 border-black p-3 text-right uppercase text-black">TARIKH & MASA</th>
                   </tr>
                 </thead>
                 <tbody>
                   {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map((t, idx) => (
                     <tr key={t.id}>
-                      <td className="border-2 border-black p-3 text-center font-bold">{idx + 1}</td>
-                      <td className="border-2 border-black p-3 font-black uppercase">{t.userName}</td>
-                      <td className="border-2 border-black p-3 font-bold uppercase">{t.bookTitle}</td>
-                      <td className="border-2 border-black p-3 text-center font-black uppercase italic">{t.action}</td>
-                      <td className="border-2 border-black p-3 text-right font-medium">{t.timestamp}</td>
+                      <td className="border-2 border-black p-3 text-center font-bold text-black">{idx + 1}</td>
+                      <td className="border-2 border-black p-3 font-black uppercase text-black">{t.userName}</td>
+                      <td className="border-2 border-black p-3 font-bold uppercase text-black">{t.bookTitle}</td>
+                      <td className="border-2 border-black p-3 text-center font-black uppercase italic text-black">{t.action}</td>
+                      <td className="border-2 border-black p-3 text-right font-medium text-black">{t.timestamp}</td>
                     </tr>
                   ))}
                   {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).length === 0 && (
-                    <tr><td colSpan={5} className="border-2 border-black p-10 text-center font-black uppercase italic">Tiada rekod untuk bulan ini.</td></tr>
+                    <tr><td colSpan={5} className="border-2 border-black p-10 text-center font-black uppercase italic text-black">Tiada rekod untuk bulan ini.</td></tr>
                   )}
                 </tbody>
              </table>
