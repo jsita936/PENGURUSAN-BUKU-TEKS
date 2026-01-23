@@ -572,7 +572,7 @@ const App: React.FC = () => {
       {/* --- PRINTABLE AREAS --- */}
 
       {isPrintDamageReportOpen && (
-        <div className="fixed inset-0 bg-white z-[600] flex flex-col overflow-y-auto no-scrollbar print-area">
+        <div className="fixed inset-0 bg-white z-[600] flex flex-col overflow-y-auto no-scrollbar print-area" style={{ fontFamily: 'Arial, sans-serif' }}>
           <div className="p-4 border-b flex justify-between items-center bg-rose-700 text-white no-print">
             <div className="flex items-center gap-4 text-white"><FileText size={20} /><h3 className="text-sm font-black uppercase italic">Prapapar Laporan Kos Ganti</h3></div>
             <div className="flex gap-4">
@@ -581,7 +581,7 @@ const App: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black font-serif print:p-0 print:max-w-none">
+          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black print:p-0 print:max-w-none">
              <div className="border-b-4 border-black pb-4 mb-10 text-center text-black">
                 <h2 className="text-lg font-bold uppercase tracking-tight">{adminSettings.schoolName}</h2>
                 <h1 className="text-2xl font-black uppercase underline mt-2">REKOD ARKIB & TUNGGAKAN KEROSAKAN BUKU TEKS</h1>
@@ -663,7 +663,7 @@ const App: React.FC = () => {
       )}
 
       {isPrintFormOpen && selectedMemberDetail && (
-        <div className="fixed inset-0 bg-white z-[500] flex flex-col overflow-y-auto no-scrollbar print-area">
+        <div className="fixed inset-0 bg-white z-[500] flex flex-col overflow-y-auto no-scrollbar print-area" style={{ fontFamily: 'Arial, sans-serif' }}>
           <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white no-print">
             <div className="flex items-center gap-4 text-white"><FileText size={20} /><h3 className="text-sm font-black uppercase italic">Prapapar Borang Peminjaman</h3></div>
             <div className="flex gap-4">
@@ -672,7 +672,7 @@ const App: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black font-serif print:p-0 print:max-w-none">
+          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black print:p-0 print:max-w-none">
              <div className="border-b-2 border-black pb-4 mb-8 text-center text-black">
                 <h2 className="text-lg font-bold uppercase">{adminSettings.schoolName}</h2>
                 <h1 className="text-xl font-black uppercase underline">REKOD PENERIMAAN & PEMULANGAN BUKU TEKS</h1>
@@ -684,7 +684,7 @@ const App: React.FC = () => {
              </div>
              <table className="w-full border-collapse border-2 border-black text-[9px] text-black bg-transparent">
                 <thead>
-                  <tr>
+                  <tr className="bg-white">
                     <th className="border-2 border-black p-1 w-6 text-center uppercase font-black">BIL</th>
                     <th className="border-2 border-black p-1 w-16 text-center uppercase font-black">KOD BUKU</th>
                     <th className="border-2 border-black p-1 text-left uppercase font-black">NAMA BUKU</th>
@@ -696,48 +696,48 @@ const App: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
+                  <tr className="bg-white">
                     <td colSpan={8} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase text-[10px]">BAHAGIAN 1: BUKU TEKS</td>
                   </tr>
                   {books.filter(b => b.year === selectedMemberDetail.year && b.type === 'Buku Teks').map((b, idx) => {
                     const data = editableFormData[b.id] || { serial: '', receivedDate: '', returnDate: '', status: '' };
                     const isDamaged = data.status.toUpperCase().includes('ROSAK') || data.status.toUpperCase().includes('HILANG');
                     return (
-                      <tr key={b.id} className={isDamaged ? 'text-red-600' : 'text-black'}>
+                      <tr key={b.id} className={`${isDamaged ? 'text-red-600' : 'text-black'} bg-white`}>
                         <td className="border-2 border-black p-1 text-center font-bold">{idx + 1}.</td>
                         <td className="border-2 border-black p-1 text-center font-black">{b.code}</td>
                         <td className="border-2 border-black p-1 font-bold uppercase">{b.title}</td>
                         <td className="border-2 border-black p-1 text-center font-bold">{b.price.toFixed(2)}</td>
-                        <td className="border-2 border-black p-0">
-                          <input type="text" value={data.serial} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, serial: e.target.value.toUpperCase()}})} className={`w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase ${isDamaged ? 'text-red-600' : 'text-black'}`} />
+                        <td className="border-2 border-black p-0 bg-transparent">
+                          <input type="text" value={data.serial} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, serial: e.target.value.toUpperCase()}})} className={`w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase ${isDamaged ? 'text-red-600' : 'text-black'}`} style={{ color: isDamaged ? 'red' : 'black' }} />
                         </td>
-                        <td className="border-2 border-black p-0">
-                          <input type="text" value={data.receivedDate} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, receivedDate: e.target.value}})} className={`w-full h-full text-center font-bold text-[10px] outline-none bg-transparent ${isDamaged ? 'text-red-600' : 'text-black'}`} />
+                        <td className="border-2 border-black p-0 bg-transparent">
+                          <input type="text" value={data.receivedDate} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, receivedDate: e.target.value}})} className={`w-full h-full text-center font-bold text-[10px] outline-none bg-transparent ${isDamaged ? 'text-red-600' : 'text-black'}`} style={{ color: isDamaged ? 'red' : 'black' }} />
                         </td>
-                        <td className="border-2 border-black p-0">
-                          <input type="text" value={data.returnDate} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, returnDate: e.target.value}})} className={`w-full h-full text-center font-bold text-[10px] outline-none bg-transparent ${isDamaged ? 'text-red-600' : 'text-black'}`} />
+                        <td className="border-2 border-black p-0 bg-transparent">
+                          <input type="text" value={data.returnDate} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, returnDate: e.target.value}})} className={`w-full h-full text-center font-bold text-[10px] outline-none bg-transparent ${isDamaged ? 'text-red-600' : 'text-black'}`} style={{ color: isDamaged ? 'red' : 'black' }} />
                         </td>
-                        <td className="border-2 border-black p-0">
-                          <input type="text" value={data.status} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, status: e.target.value.toUpperCase()}})} className={`w-full h-full text-center font-black text-[7px] outline-none bg-transparent uppercase ${isDamaged ? 'text-red-600' : 'text-black'}`} />
+                        <td className="border-2 border-black p-0 bg-transparent">
+                          <input type="text" value={data.status} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, status: e.target.value.toUpperCase()}})} className={`w-full h-full text-center font-black text-[7px] outline-none bg-transparent uppercase ${isDamaged ? 'text-red-600' : 'text-black'}`} style={{ color: isDamaged ? 'red' : 'black' }} />
                         </td>
                       </tr>
                     );
                   })}
-                  <tr>
+                  <tr className="bg-white">
                     <td colSpan={8} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase text-[10px]">BAHAGIAN 2: BUKU AKTIVITI</td>
                   </tr>
                   {books.filter(b => b.year === selectedMemberDetail.year && b.type === 'Buku Aktiviti').map((b, idx) => {
                     const data = editableFormData[b.id] || { serial: '', receivedDate: '', returnDate: '', status: '' };
                     return (
-                      <tr key={b.id} className="text-black">
+                      <tr key={b.id} className="text-black bg-white">
                         <td className="border-2 border-black p-1 text-center font-bold">{idx + 1}.</td>
                         <td className="border-2 border-black p-1 text-center font-black">{b.code}</td>
                         <td className="border-2 border-black p-1 font-bold uppercase">{b.title}</td>
                         <td className="border-2 border-black p-1 text-center font-bold">{b.price.toFixed(2)}</td>
-                        <td className="border-2 border-black p-0">
+                        <td className="border-2 border-black p-0 bg-transparent">
                           <input type="text" value={data.serial} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, serial: e.target.value.toUpperCase()}})} className="w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase" />
                         </td>
-                        <td className="border-2 border-black p-0">
+                        <td className="border-2 border-black p-0 bg-transparent">
                           <input type="text" value={data.receivedDate} onChange={e => setEditableFormData({...editableFormData, [b.id]: {...data, receivedDate: e.target.value}})} className="w-full h-full text-center font-bold text-[10px] outline-none bg-transparent" />
                         </td>
                         <td className="border-2 border-black p-1 text-center italic text-[7px]">KEGUNAAN</td>
