@@ -463,15 +463,15 @@ const App: React.FC = () => {
 
           {activeTab === 'history' && (
             <div className="space-y-6">
-              <div className="bg-white p-4 rounded-3xl border shadow-sm flex flex-wrap gap-2 no-scrollbar">
+              <div className="bg-white p-4 rounded-3xl border shadow-sm flex flex-wrap gap-2 no-scrollbar no-print">
                  {MONTHS.map((m, idx) => (
                    <button key={m} onClick={() => setHistoryMonth(idx)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${historyMonth === idx ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}`}>{m}</button>
                  ))}
               </div>
-              <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl">
+              <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl print-area">
                  <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
                     <div><h3 className="text-2xl font-black text-indigo-900 uppercase italic leading-tight">LOG TRANSAKSI: {MONTHS[historyMonth].toUpperCase()}</h3><p className="text-[9px] font-black text-slate-400 uppercase italic mt-1">Laporan bulanan arkib sekolah</p></div>
-                    <button onClick={() => window.print()} className="px-6 py-3 bg-white border border-indigo-100 text-indigo-600 rounded-xl font-black text-[10px] uppercase shadow-md flex items-center gap-2 hover:bg-indigo-50 transition-colors"><Printer size={16}/> CETAK BULAN INI</button>
+                    <button onClick={() => window.print()} className="no-print px-6 py-3 bg-white border border-indigo-100 text-indigo-600 rounded-xl font-black text-[10px] uppercase shadow-md flex items-center gap-2 hover:bg-indigo-50 transition-colors"><Printer size={16}/> CETAK BULAN INI</button>
                  </div>
                  <div className="overflow-x-auto">
                    <table className="w-full text-left">
