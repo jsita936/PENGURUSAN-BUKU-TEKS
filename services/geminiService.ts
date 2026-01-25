@@ -31,15 +31,17 @@ export const getStockInsight = async (books: Book[], transactions: Transaction[]
 };
 
 export const extractMembersFromFile = async (fileData: string, mimeType: string) => {
-  const prompt = `TUGAS: Ekstrak senarai murid daripada dokumen/imej ini.
-  
-  ARAHAN TEKNIKAL:
-  1. Kenalpasti TAHUN (1-6) dengan teliti. Lihat pada tajuk dokumen atau kolum 'Tahun/Darjah'. Jika keseluruhan dokumen adalah untuk satu tahun sahaja (contoh: "SENARAI NAMA TAHUN 1"), pastikan SEMUA murid diberikan nilai tahun yang sama. JANGAN sesekali memandai (hallucinate) menukar tahun jika tidak dinyatakan.
-  2. Ekstrak NAMA penuh murid dalam HURUF BESAR.
-  3. Ekstrak KELAS dalam HURUF BESAR (contoh: AMANAH, BESTARI).
-  4. Jika maklumat kelas tidak dijumpai dalam baris murid, cuba cari di bahagian atas (header) dokumen.
-  
-  FORMAT OUTPUT: JSON Array.`;
+  const prompt = `TUGAS: Anda adalah robot pengekstrak data OCR yang sangat teliti. Ekstrak senarai nama murid daripada dokumen ini.
+
+SOP KETAT (WAJIB PATUH):
+1. CARI "GLOBAL YEAR": Lihat pada tajuk besar dokumen atau bahagian atas (Header). Jika tertulis "TAHUN 1" atau "DARJAH 1", maka SEMUA murid dalam fail ini MESTI diletakkan sebagai Year: 1.
+2. DILARANG KERAS menukar tahun secara rawak (seperti 1, 2, 3...) mengikut baris. Jika dokumen itu dokumen Tahun 1, pastikan output SEMUA rekod adalah tahun 1.
+3. NAMA MURID: Ekstrak dengan ejaan tepat dalam HURUF BESAR.
+4. KELAS: Jika tajuk dokumen menyatakan nama kelas (contoh: "1 AMANAH"), gunakan "AMANAH" untuk semua murid tersebut kecuali jika ada kolum kelas yang berbeza bagi setiap baris.
+5. Jika tiada maklumat tahun dikesan langsung, gunakan nilai default: 1.
+6. JANGAN REKA DATA. Jika ada 20 nama, pulangkan 20 objek sahaja.
+
+OUTPUT: Mesti dalam JSON Array.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -66,15 +68,15 @@ export const extractMembersFromFile = async (fileData: string, mimeType: string)
             properties: {
               name: {
                 type: Type.STRING,
-                description: "Nama penuh murid dalam HURUF BESAR.",
+                description: "Nama penuh murid (HURUF BESAR).",
               },
               year: {
                 type: Type.INTEGER,
-                description: "Tahun atau darjah murid (nombor 1 hingga 6 sahaja).",
+                description: "Angka tahun 1-6 sahaja. Mesti konsisten dengan konteks dokumen.",
               },
               className: {
                 type: Type.STRING,
-                description: "Nama kelas murid (contoh: AMANAH, CERDIK).",
+                description: "Nama kelas (HURUF BESAR).",
               }
             },
             required: ["name", "year", "className"]
@@ -86,12 +88,17 @@ export const extractMembersFromFile = async (fileData: string, mimeType: string)
     const text = response.text || "[]";
     const data = JSON.parse(text);
     
-    // Pastikan data adalah array dan bersihkan jika perlu
     if (!Array.isArray(data)) return [];
     
-    return data as Partial<Member>[];
+    // Pembersihan tambahan di peringkat kod untuk memastikan data selamat
+    return data.map(m => ({
+      name: String(m.name || 'TANPA NAMA').toUpperCase(),
+      year: Number(m.year) || 1,
+      className: String(m.className || '').toUpperCase()
+    })) as Partial<Member>[];
+
   } catch (error) {
     console.error("Gemini Extraction Error:", error);
-    throw new Error("Gagal mengekstrak data. Sila pastikan dokumen atau gambar yang dimuat naik adalah jelas dan mengandungi senarai nama murid.");
+    throw new Error("Gagal mengekstrak data. Pastikan fail/gambar adalah jelas.");
   }
 };
