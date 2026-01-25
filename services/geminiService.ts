@@ -19,6 +19,9 @@ export const getStockInsight = async (books: Book[], transactions: Transaction[]
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
+      config: {
+        thinkingConfig: { thinkingBudget: 0 }
+      }
     });
     return response.text;
   } catch (error) {
@@ -28,8 +31,15 @@ export const getStockInsight = async (books: Book[], transactions: Transaction[]
 };
 
 export const extractMembersFromFile = async (fileData: string, mimeType: string) => {
-  const prompt = `Ekstrak senarai murid daripada dokumen ini secara tepat. 
-  Pastikan nama murid dalam HURUF BESAR, tahun antara 1-6, dan nama kelas dalam HURUF BESAR.`;
+  const prompt = `TUGAS: Ekstrak senarai murid daripada dokumen/imej ini.
+  
+  ARAHAN TEKNIKAL:
+  1. Kenalpasti TAHUN (1-6) dengan teliti. Lihat pada tajuk dokumen atau kolum 'Tahun/Darjah'. Jika keseluruhan dokumen adalah untuk satu tahun sahaja (contoh: "SENARAI NAMA TAHUN 1"), pastikan SEMUA murid diberikan nilai tahun yang sama. JANGAN sesekali memandai (hallucinate) menukar tahun jika tidak dinyatakan.
+  2. Ekstrak NAMA penuh murid dalam HURUF BESAR.
+  3. Ekstrak KELAS dalam HURUF BESAR (contoh: AMANAH, BESTARI).
+  4. Jika maklumat kelas tidak dijumpai dalam baris murid, cuba cari di bahagian atas (header) dokumen.
+  
+  FORMAT OUTPUT: JSON Array.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -48,6 +58,7 @@ export const extractMembersFromFile = async (fileData: string, mimeType: string)
       },
       config: {
         responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 0 },
         responseSchema: {
           type: Type.ARRAY,
           items: {
@@ -59,11 +70,11 @@ export const extractMembersFromFile = async (fileData: string, mimeType: string)
               },
               year: {
                 type: Type.INTEGER,
-                description: "Tahun/Darjah murid (1-6).",
+                description: "Tahun atau darjah murid (nombor 1 hingga 6 sahaja).",
               },
               className: {
                 type: Type.STRING,
-                description: "Nama kelas murid dalam HURUF BESAR.",
+                description: "Nama kelas murid (contoh: AMANAH, CERDIK).",
               }
             },
             required: ["name", "year", "className"]
@@ -73,9 +84,14 @@ export const extractMembersFromFile = async (fileData: string, mimeType: string)
     });
 
     const text = response.text || "[]";
-    return JSON.parse(text) as Partial<Member>[];
+    const data = JSON.parse(text);
+    
+    // Pastikan data adalah array dan bersihkan jika perlu
+    if (!Array.isArray(data)) return [];
+    
+    return data as Partial<Member>[];
   } catch (error) {
     console.error("Gemini Extraction Error:", error);
-    throw new Error("Gagal mengekstrak data. Sila pastikan dokumen jelas.");
+    throw new Error("Gagal mengekstrak data. Sila pastikan dokumen atau gambar yang dimuat naik adalah jelas dan mengandungi senarai nama murid.");
   }
 };
