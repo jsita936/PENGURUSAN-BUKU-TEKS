@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Book, Transaction, UserType, TransactionStatus, ActionType, BookType, Member, AdminSettings, ResolutionMethod, ResolutionStatus } from './types';
 import { INITIAL_BOOKS, YEARS, CATEGORIES } from './constants';
-import { getStockInsight } from './services/geminiService';
+import { getStockInsight, extractMembersFromFile } from './services/geminiService';
 import { 
   Library, 
   History, 
@@ -27,7 +27,10 @@ import {
   School,
   CheckCircle,
   FileText,
-  RefreshCw
+  RefreshCw,
+  FileUp,
+  UploadCloud,
+  Loader2
 } from 'lucide-react';
 
 const MONTHS = [
@@ -47,6 +50,10 @@ const App: React.FC = () => {
   const [members, setMembers] = useState<Member[]>(() => {
     const saved = localStorage.getItem('spbt_members');
     return saved ? JSON.parse(saved) : [];
+  });
+  const [classesConfig, setClassesConfig] = useState<Record<number, string[]>>(() => {
+    const saved = localStorage.getItem('spbt_classes');
+    return saved ? JSON.parse(saved) : { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
   });
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(() => {
     const saved = localStorage.getItem('spbt_settings');
@@ -73,11 +80,12 @@ const App: React.FC = () => {
   const [regId, setRegId] = useState('');
   const [regPass, setRegPass] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'members' | 'damages' | 'history' | 'session' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'members' | 'damages' | 'history' | 'session' | 'settings' | 'import'>('overview');
   const [inventoryType, setInventoryType] = useState<BookType>('Buku Teks');
   const [selectedYear, setSelectedYear] = useState<number>(1);
   const [memberTypeView, setMemberTypeView] = useState<UserType>('Guru');
   const [memberYearView, setMemberYearView] = useState<number>(1);
+  const [memberClassView, setMemberClassView] = useState<string>('SEMUA');
   const [searchQuery, setSearchQuery] = useState('');
   const [historyMonth, setHistoryMonth] = useState<number>(new Date().getMonth());
 
@@ -88,7 +96,7 @@ const App: React.FC = () => {
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [isEditingMember, setIsEditingMember] = useState(false);
   const [memberToEdit, setMemberToEdit] = useState<Member | null>(null);
-  const [newMember, setNewMember] = useState<Partial<Member>>({ name: '', type: 'Guru', year: 1 });
+  const [newMember, setNewMember] = useState<Partial<Member>>({ name: '', type: 'Guru', year: 1, className: '' });
   const [isMemberDetailOpen, setIsMemberDetailOpen] = useState(false);
   const [selectedMemberDetail, setSelectedMemberDetail] = useState<Member | null>(null);
   const [isBorrowModalOpen, setIsBorrowModalOpen] = useState(false);
@@ -100,6 +108,14 @@ const App: React.FC = () => {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
+  // Import states
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedMembers, setExtractedMembers] = useState<Partial<Member>[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [newClassName, setNewClassName] = useState('');
+  const [classConfigYear, setClassConfigYear] = useState(1);
+
   const [editableFormData, setEditableFormData] = useState<Record<string, { serial: string, receivedDate: string, returnDate: string, status: string }>>({});
 
   useEffect(() => localStorage.setItem('spbt_books', JSON.stringify(books)), [books]);
@@ -107,6 +123,7 @@ const App: React.FC = () => {
   useEffect(() => localStorage.setItem('spbt_members', JSON.stringify(members)), [members]);
   useEffect(() => localStorage.setItem('spbt_settings', JSON.stringify(adminSettings)), [adminSettings]);
   useEffect(() => localStorage.setItem('spbt_persistent_forms', JSON.stringify(persistentForms)), [persistentForms]);
+  useEffect(() => localStorage.setItem('spbt_classes', JSON.stringify(classesConfig)), [classesConfig]);
 
   useEffect(() => {
     if (selectedMemberDetail) {
@@ -295,7 +312,8 @@ const App: React.FC = () => {
       id: Math.random().toString(36).substr(2, 9),
       name: newMember.name!.toUpperCase(),
       type: newMember.type || 'Guru',
-      year: newMember.type === 'Murid' ? newMember.year : undefined
+      year: newMember.type === 'Murid' ? newMember.year : undefined,
+      className: newMember.type === 'Murid' ? newMember.className : undefined
     };
     setMembers(prev => [...prev, member]);
     setIsAddingMember(false);
@@ -305,6 +323,70 @@ const App: React.FC = () => {
     if (!memberToEdit) return;
     setMembers(prev => prev.map(m => m.id === memberToEdit.id ? { ...memberToEdit, name: memberToEdit.name.toUpperCase() } : m));
     setIsEditingMember(false);
+  };
+
+  const handleAddClass = () => {
+    if (!newClassName) return;
+    const name = newClassName.toUpperCase().trim();
+    if (classesConfig[classConfigYear].includes(name)) return alert("Kelas sudah ada!");
+    setClassesConfig(prev => ({
+      ...prev,
+      [classConfigYear]: [...prev[classConfigYear], name].sort()
+    }));
+    setNewClassName('');
+  };
+
+  const handleRemoveClass = (year: number, name: string) => {
+    if (confirm(`Padam kelas ${name}? Murid dalam kelas ini akan kekal tetapi tanpa nama kelas.`)) {
+      setClassesConfig(prev => ({
+        ...prev,
+        [year]: prev[year].filter(c => c !== name)
+      }));
+    }
+  };
+
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsExtracting(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64 = (event.target?.result as string).split(',')[1];
+        const result = await extractMembersFromFile(base64, file.type);
+        setExtractedMembers(result);
+        setIsExtracting(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      alert("Gagal memproses fail. Sila pastikan fail anda dalam format PDF atau Gambar yang jelas.");
+      setIsExtracting(false);
+    }
+  };
+
+  const handleConfirmImport = () => {
+    const newMembersList: Member[] = extractedMembers.map(m => ({
+      id: Math.random().toString(36).substr(2, 9),
+      name: (m.name || 'TANPA NAMA').toUpperCase(),
+      type: 'Murid',
+      year: m.year || 1,
+      className: (m.className || '').toUpperCase()
+    }));
+
+    // Auto-create classes if they don't exist
+    const newClassesConfig = { ...classesConfig };
+    newMembersList.forEach(m => {
+      if (m.year && m.className && !newClassesConfig[m.year].includes(m.className)) {
+        newClassesConfig[m.year] = [...newClassesConfig[m.year], m.className].sort();
+      }
+    });
+
+    setMembers(prev => [...prev, ...newMembersList]);
+    setClassesConfig(newClassesConfig);
+    setExtractedMembers([]);
+    alert(`Berjaya mendaftarkan ${newMembersList.length} orang murid secara automatik!`);
+    setActiveTab('members');
   };
 
   if (!adminSettings.isRegistered) {
@@ -354,17 +436,18 @@ const App: React.FC = () => {
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg"><Library size={24} /></div>
           <div><h1 className="font-black text-md tracking-tighter uppercase italic">E-SPBT PINTAR</h1><p className="text-[7px] text-indigo-400 font-black uppercase tracking-widest">{adminSettings.schoolName}</p></div>
         </div>
-        <div className="flex-1 p-6 space-y-2">
+        <div className="flex-1 p-6 space-y-2 overflow-y-auto no-scrollbar">
           {[
             { id: 'overview', icon: LayoutDashboard, label: 'RUMUSAN' },
             { id: 'inventory', icon: Package, label: 'INVENTORI' },
             { id: 'members', icon: UserCircle, label: 'URUS AHLI' },
+            { id: 'import', icon: FileUp, label: 'IMBAS DATA' },
             { id: 'damages', icon: AlertTriangle, label: 'KOS GANTI' },
             { id: 'history', icon: History, label: 'LOG REKOD' },
             { id: 'session', icon: TrendingUp, label: 'URUS SESI' },
             { id: 'settings', icon: Settings, label: 'TETAPAN' }
           ].map((item) => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all ${activeTab === item.id ? 'bg-indigo-600 text-white font-black shadow-xl' : 'text-indigo-200/40 hover:text-white hover:bg-white/5 font-bold'}`}>
+            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all ${activeTab === item.id ? 'bg-indigo-600 text-white font-black shadow-xl' : 'text-indigo-200/60 hover:text-white hover:bg-white/5 font-bold'}`}>
               <item.icon size={20} /><span className="text-[10px] uppercase tracking-widest">{item.label}</span>
             </button>
           ))}
@@ -377,7 +460,7 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col h-screen overflow-hidden no-print">
         <header className="h-20 bg-white border-b px-6 flex items-center justify-between shadow-sm z-20">
           <h2 className="text-lg font-black text-indigo-900 uppercase italic tracking-tighter">{activeTab.toUpperCase()}</h2>
-          <div className="text-[9px] font-black uppercase text-slate-400">{adminSettings.schoolName}</div>
+          <div className="text-[9px] font-black uppercase text-slate-500">{adminSettings.schoolName}</div>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-8 no-scrollbar bg-[#f8fafc]">
@@ -391,7 +474,7 @@ const App: React.FC = () => {
                   { label: 'JUMLAH AHLI', val: members.length, icon: UserCircle, color: 'text-emerald-600' }
                 ].map((c, i) => (
                   <div key={i} className="bg-white p-6 rounded-3xl border shadow-sm flex flex-col">
-                    <p className="text-[9px] font-black text-slate-400 uppercase mb-2">{c.label}</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase mb-2">{c.label}</p>
                     <p className={`text-4xl font-black ${c.color}`}>{c.val}</p>
                   </div>
                 ))}
@@ -405,19 +488,76 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {activeTab === 'import' && (
+            <div className="max-w-4xl mx-auto space-y-8 pb-10">
+              <div className="bg-white p-12 rounded-[3rem] shadow-xl border-4 border-dashed border-indigo-600 text-center space-y-6">
+                <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                   {isExtracting ? <Loader2 size={48} className="text-indigo-600 animate-spin" /> : <UploadCloud size={48} className="text-indigo-600" />}
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black uppercase italic text-indigo-950">Imbas Senarai Murid Pukal</h3>
+                  <p className="text-[11px] text-slate-700 font-bold uppercase mt-2">Muat naik fail PDF, Gambar Jadual Kelas, atau Teks senarai nama murid.</p>
+                </div>
+                <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".pdf,image/*,.txt" />
+                <button 
+                  onClick={() => fileInputRef.current?.click()} 
+                  disabled={isExtracting}
+                  className="px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl transition-all active:scale-95 flex items-center gap-3 mx-auto"
+                >
+                  {isExtracting ? 'SEDANG MENGEKSTRAK...' : 'PILIH FAIL SENARAI NAMA'}
+                </button>
+                <div className="pt-8 border-t border-indigo-50 flex justify-center gap-12">
+                   <div className="text-center"><p className="text-[10px] font-black text-indigo-900 uppercase">EKSTRAK NAMA</p><CheckCircle size={18} className="mx-auto mt-2 text-emerald-600" /></div>
+                   <div className="text-center"><p className="text-[10px] font-black text-indigo-900 uppercase">IDENTITI KELAS</p><CheckCircle size={18} className="mx-auto mt-2 text-emerald-600" /></div>
+                   <div className="text-center"><p className="text-[10px] font-black text-indigo-900 uppercase">AUTO-SINKRON</p><CheckCircle size={18} className="mx-auto mt-2 text-emerald-600" /></div>
+                </div>
+              </div>
+
+              {extractedMembers.length > 0 && (
+                <div className="bg-white rounded-[3rem] shadow-2xl border-2 border-indigo-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="p-10 border-b bg-indigo-50 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-2xl font-black uppercase italic text-indigo-950">Semakan Prapapar</h3>
+                      <p className="text-[11px] text-indigo-700 font-black uppercase">Sila sahkan ketepatan data sebelum pendaftaran rasmi</p>
+                    </div>
+                    <button onClick={handleConfirmImport} className="px-10 py-5 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-emerald-700 transition-all">SAHKAN & DAFTAR ({extractedMembers.length} MURID)</button>
+                  </div>
+                  <div className="overflow-x-auto max-h-[600px] no-scrollbar">
+                    <table className="w-full text-left">
+                      <thead className="bg-indigo-950 text-[10px] font-black uppercase text-white sticky top-0">
+                        <tr><th className="px-10 py-5">BIL</th><th className="px-10 py-5">NAMA PENUH MURID</th><th className="px-10 py-5 text-center">TAHUN</th><th className="px-10 py-5">KELAS</th></tr>
+                      </thead>
+                      <tbody className="divide-y-2 divide-slate-100 text-[11px] font-black">
+                        {extractedMembers.map((m, idx) => (
+                          <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                            <td className="px-10 py-5 text-slate-500">{idx + 1}</td>
+                            <td className="px-10 py-5 uppercase text-indigo-950 tracking-tight">{m.name}</td>
+                            <td className="px-10 py-5 text-center"><span className="px-3 py-1 bg-indigo-100 text-indigo-950 rounded-lg">TAHUN {m.year}</span></td>
+                            <td className="px-10 py-5 uppercase text-indigo-700 font-black">{m.className || 'TIDAK DIKETAHUI'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="p-6 bg-slate-50 border-t flex justify-center">
+                     <p className="text-[10px] font-black text-slate-500 uppercase italic">Klik butang Sahkan di atas untuk mendaftarkan semua murid ke dalam sistem.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'inventory' && (
             <div className="space-y-6">
               <div className="flex flex-col lg:flex-row justify-between gap-4">
                 <div className="bg-white p-1 rounded-2xl border flex gap-1 shadow-sm">
                   {['Buku Teks', 'Buku Aktiviti'].map(type => (
-                    <button key={type} onClick={() => setInventoryType(type as BookType)} className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${inventoryType === type ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>{type}</button>
+                    <button key={type} onClick={() => setInventoryType(type as BookType)} className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${inventoryType === type ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}`}>{type}</button>
                   ))}
                 </div>
                 <button onClick={() => { setIsAddingBook(true); setNewBook({ ...newBook, type: inventoryType, year: selectedYear }); }} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase flex items-center gap-2 shadow-lg hover:bg-indigo-700"><Plus size={18}/> TAMBAH BUKU</button>
               </div>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                {YEARS.map(y => <button key={y} onClick={() => setSelectedYear(y)} className={`min-w-[80px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${selectedYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-400'}`}>TAHUN {y}</button>)}
-              </div>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">{YEARS.map(y => <button key={y} onClick={() => setSelectedYear(y)} className={`min-w-[80px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${selectedYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-500'}`}>TAHUN {y}</button>)}</div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {books.filter(b => b.year === selectedYear && b.type === inventoryType).map(book => (
                   <div key={book.id} className="bg-white p-6 rounded-3xl border shadow-sm hover:border-indigo-400 transition-all group">
@@ -442,24 +582,40 @@ const App: React.FC = () => {
               <div className="flex justify-between items-center">
                 <div className="bg-white p-1 rounded-2xl border flex gap-1 shadow-sm">
                   {['Guru', 'Murid'].map(type => (
-                    <button key={type} onClick={() => setMemberTypeView(type as UserType)} className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase transition-all ${memberTypeView === type ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400'}`}>{type}</button>
+                    <button key={type} onClick={() => setMemberTypeView(type as UserType)} className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase transition-all ${memberTypeView === type ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}`}>{type}</button>
                   ))}
                 </div>
                 <button onClick={() => setIsAddingMember(true)} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg"><Plus size={18}/></button>
               </div>
-              {memberTypeView === 'Murid' && <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">{YEARS.map(y => <button key={y} onClick={() => setMemberYearView(y)} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 transition-all ${memberYearView === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-400'}`}>TAHUN {y}</button>)}</div>}
+              {memberTypeView === 'Murid' && (
+                <div className="space-y-4">
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">{YEARS.map(y => <button key={y} onClick={() => {setMemberYearView(y); setMemberClassView('SEMUA');}} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 transition-all ${memberYearView === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-500'}`}>TAHUN {y}</button>)}</div>
+                  {classesConfig[memberYearView].length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                       <button onClick={() => setMemberClassView('SEMUA')} className={`min-w-[80px] py-2 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${memberClassView === 'SEMUA' ? 'bg-slate-800 text-white border-slate-900' : 'bg-white text-slate-500'}`}>SEMUA KELAS</button>
+                       {classesConfig[memberYearView].map(c => <button key={c} onClick={() => setMemberClassView(c)} className={`min-w-[80px] py-2 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${memberClassView === c ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-500'}`}>{c}</button>)}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="relative">
                 <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                 <input type="text" placeholder="CARI NAMA AHLI..." className="w-full pl-10 pr-4 py-4 bg-white rounded-2xl border font-black text-[10px] uppercase text-indigo-950 outline-none" value={searchQuery} onChange={e => setSearchQuery(e.target.value.toUpperCase())} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {members.filter(m => m.type === memberTypeView && (memberTypeView === 'Guru' || m.year === memberYearView) && (searchQuery === '' || m.name.includes(searchQuery))).sort((a,b) => a.name.localeCompare(b.name)).map(m => (
+                {members.filter(m => 
+                  m.type === memberTypeView && 
+                  (memberTypeView === 'Guru' || (m.year === memberYearView && (memberClassView === 'SEMUA' || m.className === memberClassView))) && 
+                  (searchQuery === '' || m.name.includes(searchQuery))
+                ).sort((a,b) => a.name.localeCompare(b.name)).map(m => (
                   <div key={m.id} onClick={() => { setSelectedMemberDetail(m); setIsMemberDetailOpen(true); }} className="bg-white p-5 rounded-3xl border shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-400 transition-all">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black">{m.name.charAt(0)}</div>
                       <div className="overflow-hidden">
                         <h4 className="font-black text-[10px] uppercase truncate w-32 text-indigo-950">{m.name}</h4>
-                        <p className="text-[8px] font-black text-slate-400 mt-1 uppercase italic">{getActiveLoans(m.name).length} / {getTotalInventoryForYear(m.year)} PINJAMAN</p>
+                        <p className="text-[8px] font-black text-slate-500 mt-1 uppercase italic">
+                           {m.type === 'Murid' ? `${m.year} ${m.className || ''} • ` : ''}{getActiveLoans(m.name).length} / {getTotalInventoryForYear(m.year)} PINJAMAN
+                        </p>
                       </div>
                     </div>
                     <ChevronRight size={16} className="text-slate-200" />
@@ -474,7 +630,7 @@ const App: React.FC = () => {
               <div className="flex flex-wrap justify-between gap-4">
                 <div className="bg-white p-2 rounded-2xl border flex flex-wrap gap-1">
                    {MONTHS.map((m, idx) => (
-                     <button key={m} onClick={() => setHistoryMonth(idx)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${historyMonth === idx ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-50'}`}>{m}</button>
+                     <button key={m} onClick={() => setHistoryMonth(idx)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${historyMonth === idx ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>{m}</button>
                    ))}
                 </div>
                 <button onClick={handleResetHistory} className="px-6 py-3 bg-rose-50 text-rose-600 rounded-2xl font-black text-[10px] uppercase border border-rose-100 flex items-center gap-2"><RefreshCw size={16}/> RESET</button>
@@ -515,7 +671,7 @@ const App: React.FC = () => {
                 <div className="flex-1 bg-white p-8 rounded-3xl border shadow-lg flex items-center gap-6">
                   <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center shadow-inner"><Wallet size={32} /></div>
                   <div className="flex-1">
-                    <p className="text-[9px] font-black text-slate-400 uppercase">DENDA TERKUTIP (TUNAI)</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase">DENDA TERKUTIP (TUNAI)</p>
                     <p className="text-4xl font-black text-emerald-600">RM {transactions.filter(t => t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Tunai').reduce((acc, t) => acc + (t.fineAmount || 0), 0).toFixed(2)}</p>
                   </div>
                 </div>
@@ -564,7 +720,7 @@ const App: React.FC = () => {
           )}
 
           {activeTab === 'settings' && (
-            <div className="max-w-xl mx-auto py-10">
+            <div className="max-w-3xl mx-auto py-10 space-y-8">
               <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-indigo-100">
                 <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Tetapan Pentadbir</h3>
                 <div className="space-y-6 font-bold">
@@ -581,6 +737,30 @@ const App: React.FC = () => {
                     <input type="text" className="w-full p-4 border-2 rounded-xl uppercase text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} />
                   </div>
                   <button onClick={() => { localStorage.setItem('spbt_settings', JSON.stringify(adminSettings)); alert("Simpan!"); }} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase shadow-xl font-black tracking-widest hover:bg-indigo-700">KEMASKINI TETAPAN</button>
+                </div>
+              </div>
+
+              <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-emerald-100">
+                <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Pengurusan Nama Kelas</h3>
+                <div className="space-y-6">
+                   <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2">
+                     {YEARS.map(y => (
+                       <button key={y} onClick={() => setClassConfigYear(y)} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${classConfigYear === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>TAHUN {y}</button>
+                     ))}
+                   </div>
+                   <div className="flex gap-2">
+                     <input type="text" placeholder="CONTOH: AMANAH" className="flex-1 p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600" value={newClassName} onChange={e => setNewClassName(e.target.value)} />
+                     <button onClick={handleAddClass} className="px-6 py-4 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase shadow-lg">TAMBAH</button>
+                   </div>
+                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                     {classesConfig[classConfigYear].map(c => (
+                       <div key={c} className="p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl flex items-center justify-between">
+                         <span className="text-[10px] font-black uppercase text-indigo-900">{c}</span>
+                         <button onClick={() => handleRemoveClass(classConfigYear, c)} className="text-rose-400 hover:text-rose-600"><Trash2 size={14}/></button>
+                       </div>
+                     ))}
+                     {classesConfig[classConfigYear].length === 0 && <p className="col-span-full py-6 text-center text-slate-500 text-[10px] font-black italic uppercase">Belum ada kelas didaftarkan untuk Tahun {classConfigYear}.</p>}
+                   </div>
                 </div>
               </div>
             </div>
@@ -611,65 +791,73 @@ const App: React.FC = () => {
                });
                if (yearTrans.length === 0) return null;
 
-               const studentGroups: Record<string, Transaction[]> = {};
+               // Kumpul mengikut KELAS dahulu
+               const classGroups: Record<string, Record<string, Transaction[]>> = {};
                yearTrans.forEach(t => {
-                 if (!studentGroups[t.userName]) studentGroups[t.userName] = [];
-                 studentGroups[t.userName].push(t);
+                 const m = members.find(member => member.name === t.userName);
+                 const className = m?.className || 'TIADA KELAS';
+                 if (!classGroups[className]) classGroups[className] = {};
+                 if (!classGroups[className][t.userName]) classGroups[className][t.userName] = [];
+                 classGroups[className][t.userName].push(t);
                });
+
+               const sortedClassNames = [...(classesConfig[y] || []), 'TIADA KELAS'].filter(name => classGroups[name]);
 
                return (
                  <div key={y} className="mb-12">
-                   <h3 className="text-lg font-black uppercase border-b-2 border-black mb-4 bg-slate-50 p-2 text-black">TAHUN {y}</h3>
-                   {Object.entries(studentGroups).map(([name, list]) => {
-                     // Logik: Hanya kira bayaran jika masih Tertunggak atau Selesai via Tunai. 
-                     // Penggantian via Buku dikira 0.00
-                     const total = list.reduce((acc, curr) => {
-                       if (curr.resolutionStatus === 'Selesai' && curr.resolutionMethod === 'Buku') return acc;
-                       return acc + (curr.fineAmount || 0);
-                     }, 0);
-                     
-                     const isSettled = list.every(t => t.resolutionStatus === 'Selesai');
-                     return (
-                       <div key={name} className="mb-8 border-2 border-black p-4">
-                         <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-1">
-                            <h4 className="text-xs font-black uppercase text-black">NAMA MURID: {name}</h4>
-                            <span className={`text-[10px] font-black uppercase ${isSettled ? 'text-green-600' : 'text-red-600'}`}>STATUS: {isSettled ? 'LUNAS' : 'TUNGGAKAN'}</span>
-                         </div>
-                         <table className="w-full border-collapse border-2 border-black text-[10px] text-black">
-                           <thead>
-                             <tr className="bg-slate-100">
-                               <th className="border-2 border-black p-2 w-8 uppercase text-black">BIL</th>
-                               <th className="border-2 border-black p-2 text-left uppercase text-black">JUDUL BUKU</th>
-                               <th className="border-2 border-black p-2 w-24 text-center uppercase text-black">HARGA (RM)</th>
-                               <th className="border-2 border-black p-2 w-36 text-center uppercase text-black">CATATAN</th>
-                             </tr>
-                           </thead>
-                           <tbody>
-                             {list.map((t, idx) => {
-                               const showPrice = t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Buku' ? 0 : (t.fineAmount || 0);
-                               return (
-                                <tr key={t.id}>
-                                  <td className="border-2 border-black p-2 text-center font-bold text-black">{idx + 1}</td>
-                                  <td className="border-2 border-black p-2 uppercase font-bold text-black">{t.bookTitle}</td>
-                                  <td className="border-2 border-black p-2 text-center font-black text-black">
-                                    {showPrice === 0 ? '0.00' : showPrice.toFixed(2)}
-                                  </td>
-                                  <td className={`border-2 border-black p-2 text-center uppercase font-black text-[9px] ${t.resolutionStatus === 'Selesai' ? 'text-green-600' : 'text-red-600'}`}>
-                                    {t.resolutionStatus === 'Selesai' ? `LUNAS (${t.resolutionMethod})` : 'TERTUNGGAK'}
-                                  </td>
-                                </tr>
-                               );
-                             })}
-                             <tr className="bg-slate-50 font-black">
-                               <td colSpan={2} className="border-2 border-black p-3 text-right uppercase text-black">JUMLAH KOS GANTI:</td>
-                               <td className="border-2 border-black p-3 text-center bg-white text-black underline font-black">RM {total.toFixed(2)}</td>
-                               <td className="border-2 border-black p-3"></td>
-                             </tr>
-                           </tbody>
-                         </table>
-                       </div>
-                     );
-                   })}
+                   <h3 className="text-xl font-black uppercase border-b-4 border-black mb-6 bg-slate-200 p-3 text-black">TAHUN {y}</h3>
+                   {sortedClassNames.map(clsName => (
+                     <div key={clsName} className="mb-10 ml-4">
+                        <h4 className="text-lg font-black uppercase mb-4 text-black border-l-8 border-black pl-3 bg-slate-50">KELAS: {clsName}</h4>
+                        {Object.entries(classGroups[clsName]).map(([studentName, list]) => {
+                          const total = list.reduce((acc, curr) => {
+                            if (curr.resolutionStatus === 'Selesai' && curr.resolutionMethod === 'Buku') return acc;
+                            return acc + (curr.fineAmount || 0);
+                          }, 0);
+                          const isSettled = list.every(t => t.resolutionStatus === 'Selesai');
+                          return (
+                            <div key={studentName} className="mb-8 border-2 border-black p-4 ml-2 text-black">
+                              <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-1">
+                                 <h4 className="text-xs font-black uppercase text-black">NAMA MURID: {studentName}</h4>
+                                 <span className={`text-[10px] font-black uppercase ${isSettled ? 'text-green-600' : 'text-red-600'}`}>STATUS: {isSettled ? 'LUNAS' : 'TUNGGAKAN'}</span>
+                              </div>
+                              <table className="w-full border-collapse border-2 border-black text-[10px] text-black">
+                                <thead>
+                                  <tr className="bg-slate-100">
+                                    <th className="border-2 border-black p-2 w-8 uppercase text-black">BIL</th>
+                                    <th className="border-2 border-black p-2 text-left uppercase text-black">JUDUL BUKU</th>
+                                    <th className="border-2 border-black p-2 w-24 text-center uppercase text-black">HARGA (RM)</th>
+                                    <th className="border-2 border-black p-2 w-36 text-center uppercase text-black">CATATAN</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {list.map((t, idx) => {
+                                    const showPrice = t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Buku' ? 0 : (t.fineAmount || 0);
+                                    return (
+                                     <tr key={t.id}>
+                                       <td className="border-2 border-black p-2 text-center font-bold text-black">{idx + 1}</td>
+                                       <td className="border-2 border-black p-2 uppercase font-bold text-black">{t.bookTitle}</td>
+                                       <td className="border-2 border-black p-2 text-center font-black text-black">
+                                         {showPrice === 0 ? '0.00' : showPrice.toFixed(2)}
+                                       </td>
+                                       <td className={`border-2 border-black p-2 text-center uppercase font-black text-[9px] ${t.resolutionStatus === 'Selesai' ? 'text-green-600' : 'text-red-600'}`}>
+                                         {t.resolutionStatus === 'Selesai' ? `LUNAS (${t.resolutionMethod})` : 'TERTUNGGAK'}
+                                       </td>
+                                     </tr>
+                                    );
+                                  })}
+                                  <tr className="bg-slate-50 font-black">
+                                    <td colSpan={2} className="border-2 border-black p-3 text-right uppercase text-black">JUMLAH KOS GANTI:</td>
+                                    <td className="border-2 border-black p-3 text-center bg-white text-black underline font-black">RM {total.toFixed(2)}</td>
+                                    <td className="border-2 border-black p-3"></td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        })}
+                     </div>
+                   ))}
                  </div>
                );
              })}
@@ -691,7 +879,7 @@ const App: React.FC = () => {
              <div className="border-b-2 border-black pb-4 mb-8 text-center text-black">
                 <h2 className="text-lg font-bold uppercase text-black">{adminSettings.schoolName}</h2>
                 <h1 className="text-xl font-black uppercase underline text-black">REKOD PENERIMAAN & PEMULANGAN BUKU TEKS</h1>
-                <h3 className="text-md font-bold mt-1 uppercase text-black">TAHUN {selectedMemberDetail.year}</h3>
+                <h3 className="text-md font-bold mt-1 uppercase text-black">TAHUN {selectedMemberDetail.year} {selectedMemberDetail.className}</h3>
              </div>
              <div className="grid grid-cols-2 gap-8 mb-8 text-xs font-bold uppercase text-black">
                 <div className="flex gap-2 items-center text-black">NAMA MURID: <span className="border-b-2 border-black flex-1 font-black text-black">{selectedMemberDetail.name}</span></div>
@@ -760,7 +948,7 @@ const App: React.FC = () => {
             </div>
           </div>
           <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black print:p-0">
-             <div className="border-b-4 border-black pb-4 mb-10 text-center">
+             <div className="border-b-4 border-black pb-4 mb-10 text-center text-black">
                 <h2 className="text-lg font-bold uppercase text-black">{adminSettings.schoolName}</h2>
                 <h1 className="text-2xl font-black uppercase underline mt-2 text-black">LOG REKOD TRANSAKSI BUKU TEKS - {MONTHS[historyMonth].toUpperCase()} {new Date().getFullYear()}</h1>
              </div>
@@ -784,9 +972,6 @@ const App: React.FC = () => {
                       <td className="border-2 border-black p-3 text-right font-medium text-black">{t.timestamp}</td>
                     </tr>
                   ))}
-                  {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).length === 0 && (
-                    <tr><td colSpan={5} className="border-2 border-black p-10 text-center font-black uppercase italic text-black">Tiada rekod untuk bulan ini.</td></tr>
-                  )}
                 </tbody>
              </table>
           </div>
@@ -800,7 +985,12 @@ const App: React.FC = () => {
             <div className="p-8 border-b bg-indigo-50/50 flex justify-between items-center text-indigo-950">
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl shrink-0">{selectedMemberDetail.name.charAt(0)}</div>
-                <div><h3 className="text-xl font-black uppercase italic leading-none">{selectedMemberDetail.name}</h3><p className="text-[9px] font-black text-indigo-400 uppercase mt-2">{selectedMemberDetail.type} {selectedMemberDetail.year ? `• TAHUN ${selectedMemberDetail.year}` : ''}</p></div>
+                <div>
+                   <h3 className="text-xl font-black uppercase italic leading-none">{selectedMemberDetail.name}</h3>
+                   <p className="text-[9px] font-black text-indigo-700 uppercase mt-2">
+                      {selectedMemberDetail.type} {selectedMemberDetail.year ? `• TAHUN ${selectedMemberDetail.year} ${selectedMemberDetail.className || ''}` : ''}
+                   </p>
+                </div>
               </div>
               <div className="flex gap-2">
                 <button onClick={() => { setMemberToEdit({ ...selectedMemberDetail }); setIsEditingMember(true); }} className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg"><Edit2 size={20}/></button>
@@ -824,12 +1014,12 @@ const App: React.FC = () => {
                       </div>
                     </div>
                   ))}
-                  {getActiveLoans(selectedMemberDetail.name).length === 0 && <p className="text-center py-10 opacity-40 text-[10px] font-black italic text-indigo-950">Tiada pinjaman aktif.</p>}
+                  {getActiveLoans(selectedMemberDetail.name).length === 0 && <p className="text-center py-10 opacity-60 text-[10px] font-black italic text-indigo-950">Tiada pinjaman aktif.</p>}
                 </div>
               </div>
             </div>
             <div className="p-6 bg-slate-50 border-t flex justify-between items-center">
-              <button onClick={() => { if(confirm("Padam ahli?")) { setMembers(prev => prev.filter(m => m.id !== selectedMemberDetail.id)); setIsMemberDetailOpen(false); }}} className="text-rose-500 text-[9px] font-black uppercase flex items-center gap-2 hover:text-rose-700 font-black"><Trash2 size={16}/> PADAM AHLI</button>
+              <button onClick={() => { if(confirm("Padam ahli?")) { setMembers(prev => prev.filter(m => m.id !== selectedMemberDetail.id)); setIsMemberDetailOpen(false); }}} className="text-rose-600 text-[9px] font-black uppercase flex items-center gap-2 hover:text-rose-800 font-black"><Trash2 size={16}/> PADAM AHLI</button>
               <button onClick={() => setIsMemberDetailOpen(false)} className="px-6 py-3 bg-white border rounded-xl text-[9px] font-black uppercase text-indigo-950 shadow-sm">TUTUP</button>
             </div>
           </div>
@@ -843,29 +1033,29 @@ const App: React.FC = () => {
             <h3 className="text-xl font-black uppercase italic mb-8">{isAddingBook ? 'Daftar Buku' : 'Kemaskini Buku'}</h3>
             <div className="space-y-6">
               <div>
-                <label className="text-[9px] font-black uppercase text-indigo-400 mb-1 block ml-1">KOD BUKU (BT/BA)</label>
+                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">KOD BUKU (BT/BA)</label>
                 <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[10px] bg-slate-50 outline-none focus:border-indigo-600" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
               </div>
               <div>
-                <label className="text-[9px] font-black uppercase text-indigo-400 mb-1 block ml-1">JUDUL BUKU PENUH</label>
+                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">JUDUL BUKU PENUH</label>
                 <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[10px] bg-slate-50 outline-none focus:border-indigo-600" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-[9px] font-black uppercase text-indigo-400 mb-1 block ml-1">TAHUN</label>
+                  <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">TAHUN</label>
                   <select className="w-full p-4 border-2 rounded-xl font-black text-[10px] bg-slate-50 outline-none" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y}>TAHUN {y}</option>)}</select>
                 </div>
                 <div>
-                  <label className="text-[12px] font-black uppercase text-emerald-600 mb-1 block ml-1 border-b-2 border-emerald-100">HARGA BUKU (RM)</label>
-                  <input type="number" step="0.01" className="w-full p-4 border-2 border-emerald-200 rounded-xl font-black text-[11px] bg-emerald-50 text-emerald-700 outline-none" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
+                  <label className="text-[12px] font-black uppercase text-emerald-700 mb-1 block ml-1 border-b-2 border-emerald-100">HARGA BUKU (RM)</label>
+                  <input type="number" step="0.01" className="w-full p-4 border-2 border-emerald-200 rounded-xl font-black text-[11px] bg-emerald-50 text-emerald-800 outline-none" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
                 </div>
               </div>
               <div>
-                <label className="text-[12px] font-black uppercase text-blue-600 mb-1 block ml-1 border-b-2 border-blue-100">JUMLAH STOK (UNIT)</label>
+                <label className="text-[12px] font-black uppercase text-blue-700 mb-1 block ml-1 border-b-2 border-blue-100">JUMLAH STOK (UNIT)</label>
                 <input type="number" className="w-full p-4 border-2 border-blue-200 rounded-xl font-black text-[11px] bg-blue-50 text-blue-900 outline-none focus:border-blue-600" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
               </div>
-              <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase font-black shadow-xl tracking-widest transition-transform active:scale-95">SIMPAN DATA</button>
-              <button onClick={() => { setIsAddingBook(false); setIsEditingBook(false); }} className="w-full py-2 text-slate-400 uppercase text-[9px] font-bold">BATAL</button>
+              <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase font-black shadow-xl tracking-widest transition-transform active:scale-95">SIMPAN DATA BUKU</button>
+              <button onClick={() => { setIsAddingBook(false); setIsEditingBook(false); }} className="w-full py-2 text-slate-500 uppercase text-[9px] font-bold">BATAL</button>
             </div>
           </div>
         </div>
@@ -874,27 +1064,38 @@ const App: React.FC = () => {
       {isAddingMember && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200">
-            <h3 className="text-xl font-black uppercase italic mb-8">Tambah Ahli Baru</h3>
+            <h3 className="text-xl font-black uppercase italic mb-8">Daftar Ahli Baru</h3>
             <div className="space-y-6">
               <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
                 {['Guru', 'Murid'].map(t => (
-                  <button key={t} onClick={() => setNewMember({...newMember, type: t as UserType})} className={`flex-1 py-3 rounded-lg font-black text-[9px] uppercase transition-all ${newMember.type === t ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}`}>{t}</button>
+                  <button key={t} onClick={() => setNewMember({...newMember, type: t as UserType})} className={`flex-1 py-3 rounded-lg font-black text-[9px] uppercase transition-all ${newMember.type === t ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600'}`}>{t}</button>
                 ))}
               </div>
               <div>
-                <label className="text-[9px] font-black uppercase text-indigo-400 mb-1 block ml-1">NAMA PENUH</label>
+                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">NAMA PENUH</label>
                 <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[10px] bg-slate-50 outline-none" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
               </div>
               {newMember.type === 'Murid' && (
-                <div>
-                  <label className="text-[9px] font-black uppercase text-indigo-400 mb-1 block ml-1">TAHUN / KELAS</label>
-                  <div className="flex gap-2">
-                    {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${newMember.year === y ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-500'}`}>{y}</button>)}
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">TAHUN</label>
+                    <div className="flex gap-2">
+                      {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y, className: ''})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${newMember.year === y ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-600'}`}>{y}</button>)}
+                    </div>
                   </div>
+                  {classesConfig[newMember.year || 1].length > 0 && (
+                    <div>
+                      <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">PILIH KELAS</label>
+                      <select className="w-full p-4 border-2 rounded-xl font-black text-[10px] bg-slate-50 outline-none uppercase" value={newMember.className} onChange={e => setNewMember({...newMember, className: e.target.value})}>
+                        <option value="">- PILIH KELAS -</option>
+                        {classesConfig[newMember.year || 1].map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
               <button onClick={handleAddMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl transition-transform active:scale-95">DAFTAR AHLI</button>
-              <button onClick={() => setIsAddingMember(false)} className="w-full py-3 text-slate-400 font-bold uppercase text-[9px]">BATAL</button>
+              <button onClick={() => setIsAddingMember(false)} className="w-full py-3 text-slate-500 font-bold uppercase text-[9px]">BATAL</button>
             </div>
           </div>
         </div>
@@ -906,11 +1107,11 @@ const App: React.FC = () => {
             <h3 className="text-xl font-black uppercase italic mb-8">Kemaskini Ahli</h3>
             <div className="space-y-6">
               <div>
-                <label className="text-[9px] font-black uppercase text-indigo-400 mb-1 block ml-1">NAMA PENUH</label>
+                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">NAMA PENUH</label>
                 <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[10px] bg-slate-50 outline-none" value={memberToEdit.name} onChange={e => setMemberToEdit({...memberToEdit, name: e.target.value.toUpperCase()})} />
               </div>
               <button onClick={handleUpdateMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl transition-transform active:scale-95">SIMPAN PERUBAHAN</button>
-              <button onClick={() => setIsEditingMember(false)} className="w-full py-3 text-slate-400 font-bold uppercase text-[9px]">BATAL</button>
+              <button onClick={() => setIsEditingMember(false)} className="w-full py-3 text-slate-500 font-bold uppercase text-[9px]">BATAL</button>
             </div>
           </div>
         </div>
@@ -920,12 +1121,12 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-indigo-950/95 backdrop-blur-xl z-[300] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl flex flex-col border-b-[15px] border-indigo-600 text-indigo-950 animate-in zoom-in duration-300">
             <div className="p-8 border-b flex justify-between items-center">
-              <div><h3 className="text-xl font-black uppercase italic">Pilih Buku Pinjaman</h3><p className="text-[9px] font-black text-indigo-600 mt-1 uppercase">{selectedMemberDetail.name}</p></div>
+              <div><h3 className="text-xl font-black uppercase italic">Pilih Buku Pinjaman</h3><p className="text-[10px] font-black text-indigo-600 mt-1 uppercase">{selectedMemberDetail.name}</p></div>
               <button onClick={() => {setIsBorrowModalOpen(false); setSelectedBooksToBorrow(new Set());}} className="text-slate-300 hover:text-rose-500"><X size={24}/></button>
             </div>
             <div className="px-8 pt-6">
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                {YEARS.map(y => <button key={y} onClick={() => setBorrowFilterYear(y)} className={`min-w-[70px] py-2.5 rounded-lg font-black text-[9px] border-2 uppercase transition-all ${borrowFilterYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-slate-50 text-slate-400'}`}>TAHUN {y}</button>)}
+                {YEARS.map(y => <button key={y} onClick={() => setBorrowFilterYear(y)} className={`min-w-[70px] py-2.5 rounded-lg font-black text-[9px] border-2 uppercase transition-all ${borrowFilterYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-slate-50 text-slate-600'}`}>TAHUN {y}</button>)}
               </div>
             </div>
             <div className="p-8 pt-4 overflow-y-auto max-h-[45vh] grid grid-cols-1 md:grid-cols-2 gap-3 no-scrollbar">
@@ -934,7 +1135,7 @@ const App: React.FC = () => {
                 const isAlreadyBorrowed = getActiveLoans(selectedMemberDetail.name).some(l => l.bookId === book.id);
                 return (
                   <div key={book.id} onClick={isAlreadyBorrowed ? undefined : () => { const s = new Set(selectedBooksToBorrow); s.has(book.id) ? s.delete(book.id) : s.add(book.id); setSelectedBooksToBorrow(s); }} className={`p-4 rounded-xl border-2 transition-all flex justify-between items-center ${isAlreadyBorrowed ? 'bg-slate-100 opacity-60' : isSelected ? 'bg-indigo-600 text-white shadow-md' : 'bg-white hover:border-indigo-300 cursor-pointer'}`}>
-                    <div className="overflow-hidden flex-1 text-indigo-950"><h4 className={`font-black text-[10px] uppercase truncate ${isSelected ? 'text-white' : ''}`}>{book.title}</h4><p className={`text-[8px] uppercase mt-1 ${isSelected ? 'text-white/70' : 'text-slate-400 font-bold'}`}>{book.code} • {isAlreadyBorrowed ? 'SUDAH PINJAM' : `STOK: ${book.stock}`}</p></div>
+                    <div className="overflow-hidden flex-1 text-indigo-950"><h4 className={`font-black text-[10px] uppercase truncate ${isSelected ? 'text-white' : ''}`}>{book.title}</h4><p className={`text-[8px] uppercase mt-1 ${isSelected ? 'text-white/70' : 'text-slate-600 font-bold'}`}>{book.code} • {isAlreadyBorrowed ? 'SUDAH PINJAM' : `STOK: ${book.stock}`}</p></div>
                     {isSelected && <CheckCircle size={16} className="text-white"/>}{isAlreadyBorrowed && <Lock size={14}/>}
                   </div>
                 );

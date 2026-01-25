@@ -29,6 +29,7 @@ export interface Member {
   name: string;
   type: UserType;
   year?: number; 
+  className?: string; // Menambah nama kelas
 }
 
 export interface Transaction {
