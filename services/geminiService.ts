@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Book, Transaction, Member } from "../types";
 
 export const getStockInsight = async (books: Book[], transactions: Transaction[]) => {
@@ -28,23 +28,8 @@ export const getStockInsight = async (books: Book[], transactions: Transaction[]
 };
 
 export const extractMembersFromFile = async (fileData: string, mimeType: string) => {
-  const prompt = `
-    Anda adalah pakar pemprosesan data pendidikan Malaysia.
-    Tugas: Ekstrak senarai murid daripada dokumen ini secara tepat.
-    
-    Format Output: Mesti dalam format JSON ARRAY sahaja.
-    Setiap objek mesti mengandungi: 
-    - "name": Nama penuh murid (HURUF BESAR). Bersihkan gelaran atau no. ID jika ada.
-    - "year": Nombor tahun (1, 2, 3, 4, 5, atau 6).
-    - "className": Nama kelas (HURUF BESAR, contoh: AMANAH, BIJAK).
-    
-    Peraturan:
-    1. Jika tahun tidak dinyatakan, anggap Tahun 1.
-    2. Jika kelas tidak dinyatakan, biarkan className sebagai string kosong.
-    3. Pastikan tiada teks tambahan sebelum atau selepas JSON.
-    
-    Fail ini mungkin dalam bentuk jadual atau senarai bertulis. Analisis dengan teliti.
-  `;
+  const prompt = `Ekstrak senarai murid daripada dokumen ini secara tepat. 
+  Pastikan nama murid dalam HURUF BESAR, tahun antara 1-6, dan nama kelas dalam HURUF BESAR.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -60,14 +45,37 @@ export const extractMembersFromFile = async (fileData: string, mimeType: string)
           },
           { text: prompt }
         ]
+      },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: {
+                type: Type.STRING,
+                description: "Nama penuh murid dalam HURUF BESAR.",
+              },
+              year: {
+                type: Type.INTEGER,
+                description: "Tahun/Darjah murid (1-6).",
+              },
+              className: {
+                type: Type.STRING,
+                description: "Nama kelas murid dalam HURUF BESAR.",
+              }
+            },
+            required: ["name", "year", "className"]
+          }
+        }
       }
     });
 
     const text = response.text || "[]";
-    const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    return JSON.parse(cleanedText) as Partial<Member>[];
+    return JSON.parse(text) as Partial<Member>[];
   } catch (error) {
     console.error("Gemini Extraction Error:", error);
-    throw new Error("Gagal mengekstrak data. Sila pastikan dokumen jelas (format PDF atau Gambar).");
+    throw new Error("Gagal mengekstrak data. Sila pastikan dokumen jelas.");
   }
 };
