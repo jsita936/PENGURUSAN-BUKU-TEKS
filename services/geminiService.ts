@@ -19,9 +19,6 @@ export const getStockInsight = async (books: Book[], transactions: Transaction[]
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
-      config: {
-        thinkingConfig: { thinkingBudget: 0 }
-      }
     });
     return response.text;
   } catch (error) {
@@ -31,12 +28,13 @@ export const getStockInsight = async (books: Book[], transactions: Transaction[]
 };
 
 export const extractMembersFromFile = async (fileData: string, mimeType: string) => {
-  const prompt = `Ekstrak senarai murid: Nama (Besar), Tahun (1-6), Kelas (Besar).`;
+  const prompt = `Ekstrak senarai murid daripada dokumen ini secara tepat. 
+  Pastikan nama murid dalam HURUF BESAR, tahun antara 1-6, dan nama kelas dalam HURUF BESAR.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-lite-latest',
+      model: 'gemini-3-flash-preview',
       contents: {
         parts: [
           {
@@ -50,7 +48,6 @@ export const extractMembersFromFile = async (fileData: string, mimeType: string)
       },
       config: {
         responseMimeType: "application/json",
-        thinkingConfig: { thinkingBudget: 0 },
         responseSchema: {
           type: Type.ARRAY,
           items: {
@@ -58,15 +55,15 @@ export const extractMembersFromFile = async (fileData: string, mimeType: string)
             properties: {
               name: {
                 type: Type.STRING,
-                description: "Nama penuh murid.",
+                description: "Nama penuh murid dalam HURUF BESAR.",
               },
               year: {
                 type: Type.INTEGER,
-                description: "Tahun murid (1-6).",
+                description: "Tahun/Darjah murid (1-6).",
               },
               className: {
                 type: Type.STRING,
-                description: "Nama kelas.",
+                description: "Nama kelas murid dalam HURUF BESAR.",
               }
             },
             required: ["name", "year", "className"]
@@ -79,6 +76,6 @@ export const extractMembersFromFile = async (fileData: string, mimeType: string)
     return JSON.parse(text) as Partial<Member>[];
   } catch (error) {
     console.error("Gemini Extraction Error:", error);
-    throw new Error("Gagal mengekstrak data dengan pantas.");
+    throw new Error("Gagal mengekstrak data. Sila pastikan dokumen jelas.");
   }
 };
