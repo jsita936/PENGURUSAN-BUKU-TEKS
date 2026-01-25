@@ -30,7 +30,9 @@ import {
   RefreshCw,
   FileUp,
   UploadCloud,
-  Loader2
+  Loader2,
+  Download,
+  Upload
 } from 'lucide-react';
 
 const MONTHS = [
@@ -39,6 +41,7 @@ const MONTHS = [
 ];
 
 const App: React.FC = () => {
+  // --- STATE UTAMA ---
   const [books, setBooks] = useState<Book[]>(() => {
     const saved = localStorage.getItem('spbt_books');
     return saved ? JSON.parse(saved) : INITIAL_BOOKS;
@@ -51,10 +54,13 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('spbt_members');
     return saved ? JSON.parse(saved) : [];
   });
-  const [classesConfig, setClassesConfig] = useState<Record<number, string[]>>(() => {
+  
+  // Menggunakan string key untuk mengelakkan isu JSON parsing (number vs string)
+  const [classesConfig, setClassesConfig] = useState<Record<string, string[]>>(() => {
     const saved = localStorage.getItem('spbt_classes');
-    return saved ? JSON.parse(saved) : { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    return saved ? JSON.parse(saved) : { "1": [], "2": [], "3": [], "4": [], "5": [], "6": [] };
   });
+  
   const [adminSettings, setAdminSettings] = useState<AdminSettings>(() => {
     const saved = localStorage.getItem('spbt_settings');
     return saved ? JSON.parse(saved) : { 
@@ -108,13 +114,12 @@ const App: React.FC = () => {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // Import states
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedMembers, setExtractedMembers] = useState<Partial<Member>[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [newClassName, setNewClassName] = useState('');
-  const [classConfigYear, setClassConfigYear] = useState(1);
+  const [classConfigYear, setClassConfigYear] = useState<number>(1);
 
   const [editableFormData, setEditableFormData] = useState<Record<string, { serial: string, receivedDate: string, returnDate: string, status: string }>>({});
 
@@ -328,19 +333,24 @@ const App: React.FC = () => {
   const handleAddClass = () => {
     if (!newClassName) return;
     const name = newClassName.toUpperCase().trim();
-    if (classesConfig[classConfigYear].includes(name)) return alert("Kelas sudah ada!");
+    const yearKey = classConfigYear.toString();
+    const currentClasses = classesConfig[yearKey] || [];
+    
+    if (currentClasses.includes(name)) return alert("Kelas sudah ada!");
+    
     setClassesConfig(prev => ({
       ...prev,
-      [classConfigYear]: [...prev[classConfigYear], name].sort()
+      [yearKey]: [...currentClasses, name].sort()
     }));
     setNewClassName('');
   };
 
   const handleRemoveClass = (year: number, name: string) => {
     if (confirm(`Padam kelas ${name}? Murid dalam kelas ini akan kekal tetapi tanpa nama kelas.`)) {
+      const yearKey = year.toString();
       setClassesConfig(prev => ({
         ...prev,
-        [year]: prev[year].filter(c => c !== name)
+        [yearKey]: (prev[yearKey] || []).filter(c => c !== name)
       }));
     }
   };
@@ -374,11 +384,14 @@ const App: React.FC = () => {
       className: (m.className || '').toUpperCase()
     }));
 
-    // Auto-create classes if they don't exist
     const newClassesConfig = { ...classesConfig };
     newMembersList.forEach(m => {
-      if (m.year && m.className && !newClassesConfig[m.year].includes(m.className)) {
-        newClassesConfig[m.year] = [...newClassesConfig[m.year], m.className].sort();
+      if (m.year && m.className) {
+        const yKey = m.year.toString();
+        if (!newClassesConfig[yKey]) newClassesConfig[yKey] = [];
+        if (!newClassesConfig[yKey].includes(m.className)) {
+          newClassesConfig[yKey] = [...newClassesConfig[yKey], m.className].sort();
+        }
       }
     });
 
@@ -387,6 +400,60 @@ const App: React.FC = () => {
     setExtractedMembers([]);
     alert(`Berjaya mendaftarkan ${newMembersList.length} orang murid secara automatik!`);
     setActiveTab('members');
+  };
+
+  const handleBackupData = () => {
+    const backupObj = {
+      books,
+      transactions,
+      members,
+      classesConfig,
+      adminSettings,
+      persistentForms,
+      version: '1.2.0',
+      timestamp: new Date().toISOString()
+    };
+    
+    const dataStr = JSON.stringify(backupObj, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const exportFileDefaultName = `ESPBT_BACKUP_${adminSettings.schoolName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`;
+    
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', url);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    linkElement.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  };
+
+  const handleRestoreData = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const json = JSON.parse(e.target?.result as string);
+        
+        if (confirm("AMARAN: Data sedia ada akan dipadam sepenuhnya dan digantikan dengan data dari fail backup ini. Adakah anda pasti?")) {
+          if (json.books) setBooks(json.books);
+          if (json.transactions) setTransactions(json.transactions);
+          if (json.members) setMembers(json.members);
+          if (json.classesConfig) setClassesConfig(json.classesConfig);
+          if (json.adminSettings) setAdminSettings(json.adminSettings);
+          if (json.persistentForms) setPersistentForms(json.persistentForms);
+          
+          alert("Data berjaya dipulihkan!");
+          setActiveTab('overview');
+        }
+      } catch (err) {
+        alert("Gagal memulihkan data. Sila pastikan fail adalah format backup .json yang sah.");
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
   };
 
   if (!adminSettings.isRegistered) {
@@ -506,11 +573,6 @@ const App: React.FC = () => {
                 >
                   {isExtracting ? 'SEDANG MENGEKSTRAK...' : 'PILIH FAIL SENARAI NAMA'}
                 </button>
-                <div className="pt-8 border-t border-indigo-50 flex justify-center gap-12">
-                   <div className="text-center"><p className="text-[10px] font-black text-indigo-900 uppercase">EKSTRAK NAMA</p><CheckCircle size={18} className="mx-auto mt-2 text-emerald-600" /></div>
-                   <div className="text-center"><p className="text-[10px] font-black text-indigo-900 uppercase">IDENTITI KELAS</p><CheckCircle size={18} className="mx-auto mt-2 text-emerald-600" /></div>
-                   <div className="text-center"><p className="text-[10px] font-black text-indigo-900 uppercase">AUTO-SINKRON</p><CheckCircle size={18} className="mx-auto mt-2 text-emerald-600" /></div>
-                </div>
               </div>
 
               {extractedMembers.length > 0 && (
@@ -539,622 +601,47 @@ const App: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
-                  <div className="p-6 bg-slate-50 border-t flex justify-center">
-                     <p className="text-[10px] font-black text-slate-500 uppercase italic">Klik butang Sahkan di atas untuk mendaftarkan semua murid ke dalam sistem.</p>
-                  </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {activeTab === 'inventory' && (
-            <div className="space-y-6">
-              <div className="flex flex-col lg:flex-row justify-between gap-4">
-                <div className="bg-white p-1 rounded-2xl border flex gap-1 shadow-sm">
-                  {['Buku Teks', 'Buku Aktiviti'].map(type => (
-                    <button key={type} onClick={() => setInventoryType(type as BookType)} className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${inventoryType === type ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}`}>{type}</button>
-                  ))}
-                </div>
-                <button onClick={() => { setIsAddingBook(true); setNewBook({ ...newBook, type: inventoryType, year: selectedYear }); }} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase flex items-center gap-2 shadow-lg hover:bg-indigo-700"><Plus size={18}/> TAMBAH BUKU</button>
-              </div>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">{YEARS.map(y => <button key={y} onClick={() => setSelectedYear(y)} className={`min-w-[80px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${selectedYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-500'}`}>TAHUN {y}</button>)}</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {books.filter(b => b.year === selectedYear && b.type === inventoryType).map(book => (
-                  <div key={book.id} className="bg-white p-6 rounded-3xl border shadow-sm hover:border-indigo-400 transition-all group">
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="text-[10px] font-black text-emerald-600">RM {book.price.toFixed(2)}</span>
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => { setBookToEdit(book); setIsEditingBook(true); }} className="text-slate-400 hover:text-indigo-600"><Edit2 size={14}/></button>
-                        <button onClick={() => { if(confirm("Padam buku ini?")) setBooks(prev => prev.filter(b => b.id !== book.id))}} className="text-rose-400 hover:text-rose-600"><Trash2 size={14}/></button>
-                      </div>
-                    </div>
-                    <h4 className="font-black text-[11px] uppercase mb-1 h-8 overflow-hidden text-indigo-950">{book.title}</h4>
-                    <p className="text-[9px] font-black text-indigo-600 bg-indigo-50 w-fit px-3 py-1 rounded-lg uppercase mb-4">{book.code}</p>
-                    <div className="bg-slate-50 p-3 rounded-xl flex justify-between items-center"><span className="text-[8px] font-black text-slate-500 uppercase">STOK:</span><span className={`text-xl font-black ${book.stock < 20 ? 'text-rose-600' : 'text-indigo-950'}`}>{book.stock}</span></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'members' && (
-            <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div className="bg-white p-1 rounded-2xl border flex gap-1 shadow-sm">
-                  {['Guru', 'Murid'].map(type => (
-                    <button key={type} onClick={() => setMemberTypeView(type as UserType)} className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase transition-all ${memberTypeView === type ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}`}>{type}</button>
-                  ))}
-                </div>
-                <button onClick={() => setIsAddingMember(true)} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg"><Plus size={18}/></button>
-              </div>
-              {memberTypeView === 'Murid' && (
-                <div className="space-y-4">
-                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">{YEARS.map(y => <button key={y} onClick={() => {setMemberYearView(y); setMemberClassView('SEMUA');}} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 transition-all ${memberYearView === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-500'}`}>TAHUN {y}</button>)}</div>
-                  {classesConfig[memberYearView].length > 0 && (
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                       <button onClick={() => setMemberClassView('SEMUA')} className={`min-w-[80px] py-2 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${memberClassView === 'SEMUA' ? 'bg-slate-800 text-white border-slate-900' : 'bg-white text-slate-500'}`}>SEMUA KELAS</button>
-                       {classesConfig[memberYearView].map(c => <button key={c} onClick={() => setMemberClassView(c)} className={`min-w-[80px] py-2 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${memberClassView === c ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-500'}`}>{c}</button>)}
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="relative">
-                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                <input type="text" placeholder="CARI NAMA AHLI..." className="w-full pl-10 pr-4 py-4 bg-white rounded-2xl border font-black text-[10px] uppercase text-indigo-950 outline-none" value={searchQuery} onChange={e => setSearchQuery(e.target.value.toUpperCase())} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {members.filter(m => 
-                  m.type === memberTypeView && 
-                  (memberTypeView === 'Guru' || (m.year === memberYearView && (memberClassView === 'SEMUA' || m.className === memberClassView))) && 
-                  (searchQuery === '' || m.name.includes(searchQuery))
-                ).sort((a,b) => a.name.localeCompare(b.name)).map(m => (
-                  <div key={m.id} onClick={() => { setSelectedMemberDetail(m); setIsMemberDetailOpen(true); }} className="bg-white p-5 rounded-3xl border shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-400 transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black">{m.name.charAt(0)}</div>
-                      <div className="overflow-hidden">
-                        <h4 className="font-black text-[10px] uppercase truncate w-32 text-indigo-950">{m.name}</h4>
-                        <p className="text-[8px] font-black text-slate-500 mt-1 uppercase italic">
-                           {m.type === 'Murid' ? `${m.year} ${m.className || ''} • ` : ''}{getActiveLoans(m.name).length} / {getTotalInventoryForYear(m.year)} PINJAMAN
-                        </p>
-                      </div>
-                    </div>
-                    <ChevronRight size={16} className="text-slate-200" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'history' && (
-            <div className="space-y-6">
-              <div className="flex flex-wrap justify-between gap-4">
-                <div className="bg-white p-2 rounded-2xl border flex flex-wrap gap-1">
-                   {MONTHS.map((m, idx) => (
-                     <button key={m} onClick={() => setHistoryMonth(idx)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${historyMonth === idx ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>{m}</button>
-                   ))}
-                </div>
-                <button onClick={handleResetHistory} className="px-6 py-3 bg-rose-50 text-rose-600 rounded-2xl font-black text-[10px] uppercase border border-rose-100 flex items-center gap-2"><RefreshCw size={16}/> RESET</button>
-              </div>
-              <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl">
-                 <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
-                    <h3 className="text-xl font-black text-indigo-900 uppercase italic">LOG {MONTHS[historyMonth].toUpperCase()}</h3>
-                    <button onClick={() => setIsPrintHistoryOpen(true)} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase flex items-center gap-2 shadow-lg transition-transform active:scale-95"><Printer size={16}/> CETAK</button>
-                 </div>
-                 <div className="overflow-x-auto">
-                   <table className="w-full text-left">
-                     <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-600 border-b">
-                       <tr><th className="px-8 py-6">PENGGUNA</th><th className="px-8 py-6">JUDUL BUKU</th><th className="px-8 py-6 text-center">TINDAKAN</th><th className="px-8 py-6 text-right">TARIKH</th></tr>
-                     </thead>
-                     <tbody className="divide-y text-[10px] font-bold">
-                       {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map(t => (
-                         <tr key={t.id} className="hover:bg-indigo-50/30 transition-colors">
-                           <td className="px-8 py-5 uppercase font-black text-indigo-950">{t.userName}</td>
-                           <td className="px-8 py-5 uppercase truncate max-w-[200px] text-indigo-900">{t.bookTitle}</td>
-                           <td className="px-8 py-5 text-center">
-                             <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${t.action === 'Pinjaman' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'}`}>
-                               {t.action}
-                             </span>
-                           </td>
-                           <td className="px-8 py-5 text-right italic text-slate-500 font-medium">{t.timestamp}</td>
-                         </tr>
-                       ))}
-                     </tbody>
-                   </table>
-                 </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'damages' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 bg-white p-8 rounded-3xl border shadow-lg flex items-center gap-6">
-                  <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center shadow-inner"><Wallet size={32} /></div>
-                  <div className="flex-1">
-                    <p className="text-[9px] font-black text-slate-500 uppercase">DENDA TERKUTIP (TUNAI)</p>
-                    <p className="text-4xl font-black text-emerald-600">RM {transactions.filter(t => t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Tunai').reduce((acc, t) => acc + (t.fineAmount || 0), 0).toFixed(2)}</p>
-                  </div>
-                </div>
-                <button onClick={() => setIsPrintDamageReportOpen(true)} className="px-8 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-[12px] uppercase shadow-xl flex items-center gap-4 hover:bg-indigo-700 transition-all"><Printer size={32}/>CETAK LAPORAN</button>
-              </div>
-              <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-[9px] uppercase font-black border-b text-slate-600">
-                    <tr><th className="px-8 py-6">NAMA AHLI</th><th className="px-8 py-6">JUDUL BUKU</th><th className="px-8 py-6 text-center">NILAI</th><th className="px-8 py-6 text-right">STATUS</th></tr>
-                  </thead>
-                  <tbody className="divide-y text-[10px] font-bold">
-                    {transactions.filter(t => t.status === 'Rosak/Hilang').map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-8 py-5 uppercase font-black text-indigo-950">{t.userName}</td>
-                        <td className="px-8 py-5 uppercase truncate max-w-[200px] text-indigo-900">{t.bookTitle}</td>
-                        <td className="px-8 py-5 text-center text-rose-700 font-black">RM {t.fineAmount?.toFixed(2)}</td>
-                        <td className="px-8 py-5 text-right flex justify-end gap-2">
-                          {t.resolutionStatus === 'Tertunggak' ? (
-                            <>
-                              <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[8px] uppercase font-black shadow-sm">TUNAI</button>
-                              <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[8px] uppercase font-black shadow-sm">BUKU</button>
-                            </>
-                          ) : (
-                            <span className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-[8px] uppercase font-black border">LUNAS</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'session' && (
-            <div className="max-w-xl mx-auto py-10">
-              <div className="bg-white p-10 rounded-[3rem] shadow-xl text-center border-b-[12px] border-indigo-600">
-                <TrendingUp size={64} className="mx-auto text-indigo-600 mb-6" />
-                <h3 className="text-2xl font-black uppercase italic mb-8 text-indigo-950">Pengurusan Sesi</h3>
-                <div className="space-y-4">
-                  <button onClick={handleSessionPromotion} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[11px] shadow-lg flex items-center justify-center gap-3 hover:bg-indigo-700"><ArrowUpCircle size={20}/> NAIK KELAS</button>
-                  <button onClick={handleSessionReset} className="w-full py-5 bg-rose-50 text-rose-600 rounded-2xl font-black uppercase text-[11px] border border-rose-100 flex items-center justify-center gap-3 hover:bg-rose-600 hover:text-white transition-all"><RotateCcw size={20}/> RESET SEMUA AHLI</button>
-                </div>
-              </div>
             </div>
           )}
 
           {activeTab === 'settings' && (
             <div className="max-w-3xl mx-auto py-10 space-y-8">
+              {/* --- BAGIAN BACKUP & RESTORE --- */}
               <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-indigo-100">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                    <RefreshCw size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black uppercase italic text-indigo-950">Sinkronasi & Backup Data</h3>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pindah data antara laptop dan telefon</p>
+                  </div>
+                </div>
+                
+                <p className="text-[10px] font-bold text-slate-600 mb-8 leading-relaxed bg-slate-50 p-4 rounded-2xl border">
+                  PANDUAN: Tekan butang <b>BACKUP DATA</b> untuk simpan fail. Kemudian, hantar fail tersebut ke phone. Di phone, buka app ini dan tekan <b>MUAT NAIK BACKUP</b>.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button 
+                    onClick={handleBackupData}
+                    className="flex items-center justify-center gap-3 px-6 py-5 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-indigo-800 transition-all active:translate-y-1"
+                  >
+                    <Download size={20} /> BACKUP DATA
+                  </button>
+                  
+                  <label className="flex items-center justify-center gap-3 px-6 py-5 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-emerald-800 transition-all active:translate-y-1 cursor-pointer text-center">
+                    <Upload size={20} /> MUAT NAIK BACKUP
+                    <input type="file" className="hidden" accept=".json" onChange={handleRestoreData} />
+                  </label>
+                </div>
+              </div>
+
+              <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-slate-100">
                 <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Tetapan Pentadbir</h3>
                 <div className="space-y-6 font-bold">
                   <div>
                     <label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">ID PENGGUNA</label>
-                    <input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">KATA LALUAN</label>
-                    <input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">NAMA SEKOLAH</label>
-                    <input type="text" className="w-full p-4 border-2 rounded-xl uppercase text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} />
-                  </div>
-                  <button onClick={() => { localStorage.setItem('spbt_settings', JSON.stringify(adminSettings)); alert("Simpan!"); }} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase shadow-xl font-black tracking-widest hover:bg-indigo-700">KEMASKINI TETAPAN</button>
-                </div>
-              </div>
-
-              <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-emerald-100">
-                <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Pengurusan Nama Kelas</h3>
-                <div className="space-y-6">
-                   <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2">
-                     {YEARS.map(y => (
-                       <button key={y} onClick={() => setClassConfigYear(y)} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${classConfigYear === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>TAHUN {y}</button>
-                     ))}
-                   </div>
-                   <div className="flex gap-2">
-                     <input type="text" placeholder="CONTOH: AMANAH" className="flex-1 p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600" value={newClassName} onChange={e => setNewClassName(e.target.value)} />
-                     <button onClick={handleAddClass} className="px-6 py-4 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase shadow-lg">TAMBAH</button>
-                   </div>
-                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                     {classesConfig[classConfigYear].map(c => (
-                       <div key={c} className="p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl flex items-center justify-between">
-                         <span className="text-[10px] font-black uppercase text-indigo-900">{c}</span>
-                         <button onClick={() => handleRemoveClass(classConfigYear, c)} className="text-rose-400 hover:text-rose-600"><Trash2 size={14}/></button>
-                       </div>
-                     ))}
-                     {classesConfig[classConfigYear].length === 0 && <p className="col-span-full py-6 text-center text-slate-500 text-[10px] font-black italic uppercase">Belum ada kelas didaftarkan untuk Tahun {classConfigYear}.</p>}
-                   </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* --- LAPORAN KOS GANTI --- */}
-      {isPrintDamageReportOpen && (
-        <div className="fixed inset-0 bg-white z-[600] flex flex-col overflow-y-auto no-scrollbar print-area" style={{ fontFamily: 'Arial, sans-serif' }}>
-          <div className="p-4 border-b flex justify-between items-center bg-rose-700 text-white no-print">
-            <h3 className="text-sm font-black uppercase italic">Prapapar Laporan Kos Ganti</h3>
-            <div className="flex gap-4">
-               <button onClick={() => window.print()} className="px-6 py-2 bg-white text-rose-700 rounded-xl font-black text-[10px] uppercase shadow-lg"><Printer size={14} className="inline mr-2"/> CETAK</button>
-               <button onClick={() => setIsPrintDamageReportOpen(false)} className="p-2 text-white/50"><X size={24}/></button>
-            </div>
-          </div>
-          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black print:p-0">
-             <div className="border-b-4 border-black pb-4 mb-10 text-center">
-                <h2 className="text-lg font-bold uppercase text-black">{adminSettings.schoolName}</h2>
-                <h1 className="text-2xl font-black uppercase underline mt-2 text-black">REKOD KEROSAKAN & KOS GANTI BUKU TEKS</h1>
-             </div>
-
-             {YEARS.map(y => {
-               const yearTrans = transactions.filter(t => {
-                 const m = members.find(member => member.name === t.userName);
-                 return t.status === 'Rosak/Hilang' && m?.year === y;
-               });
-               if (yearTrans.length === 0) return null;
-
-               // Kumpul mengikut KELAS dahulu
-               const classGroups: Record<string, Record<string, Transaction[]>> = {};
-               yearTrans.forEach(t => {
-                 const m = members.find(member => member.name === t.userName);
-                 const className = m?.className || 'TIADA KELAS';
-                 if (!classGroups[className]) classGroups[className] = {};
-                 if (!classGroups[className][t.userName]) classGroups[className][t.userName] = [];
-                 classGroups[className][t.userName].push(t);
-               });
-
-               const sortedClassNames = [...(classesConfig[y] || []), 'TIADA KELAS'].filter(name => classGroups[name]);
-
-               return (
-                 <div key={y} className="mb-12">
-                   <h3 className="text-xl font-black uppercase border-b-4 border-black mb-6 bg-slate-200 p-3 text-black">TAHUN {y}</h3>
-                   {sortedClassNames.map(clsName => (
-                     <div key={clsName} className="mb-10 ml-4">
-                        <h4 className="text-lg font-black uppercase mb-4 text-black border-l-8 border-black pl-3 bg-slate-50">KELAS: {clsName}</h4>
-                        {Object.entries(classGroups[clsName]).map(([studentName, list]) => {
-                          const total = list.reduce((acc, curr) => {
-                            if (curr.resolutionStatus === 'Selesai' && curr.resolutionMethod === 'Buku') return acc;
-                            return acc + (curr.fineAmount || 0);
-                          }, 0);
-                          const isSettled = list.every(t => t.resolutionStatus === 'Selesai');
-                          return (
-                            <div key={studentName} className="mb-8 border-2 border-black p-4 ml-2 text-black">
-                              <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-1">
-                                 <h4 className="text-xs font-black uppercase text-black">NAMA MURID: {studentName}</h4>
-                                 <span className={`text-[10px] font-black uppercase ${isSettled ? 'text-green-600' : 'text-red-600'}`}>STATUS: {isSettled ? 'LUNAS' : 'TUNGGAKAN'}</span>
-                              </div>
-                              <table className="w-full border-collapse border-2 border-black text-[10px] text-black">
-                                <thead>
-                                  <tr className="bg-slate-100">
-                                    <th className="border-2 border-black p-2 w-8 uppercase text-black">BIL</th>
-                                    <th className="border-2 border-black p-2 text-left uppercase text-black">JUDUL BUKU</th>
-                                    <th className="border-2 border-black p-2 w-24 text-center uppercase text-black">HARGA (RM)</th>
-                                    <th className="border-2 border-black p-2 w-36 text-center uppercase text-black">CATATAN</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {list.map((t, idx) => {
-                                    const showPrice = t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Buku' ? 0 : (t.fineAmount || 0);
-                                    return (
-                                     <tr key={t.id}>
-                                       <td className="border-2 border-black p-2 text-center font-bold text-black">{idx + 1}</td>
-                                       <td className="border-2 border-black p-2 uppercase font-bold text-black">{t.bookTitle}</td>
-                                       <td className="border-2 border-black p-2 text-center font-black text-black">
-                                         {showPrice === 0 ? '0.00' : showPrice.toFixed(2)}
-                                       </td>
-                                       <td className={`border-2 border-black p-2 text-center uppercase font-black text-[9px] ${t.resolutionStatus === 'Selesai' ? 'text-green-600' : 'text-red-600'}`}>
-                                         {t.resolutionStatus === 'Selesai' ? `LUNAS (${t.resolutionMethod})` : 'TERTUNGGAK'}
-                                       </td>
-                                     </tr>
-                                    );
-                                  })}
-                                  <tr className="bg-slate-50 font-black">
-                                    <td colSpan={2} className="border-2 border-black p-3 text-right uppercase text-black">JUMLAH KOS GANTI:</td>
-                                    <td className="border-2 border-black p-3 text-center bg-white text-black underline font-black">RM {total.toFixed(2)}</td>
-                                    <td className="border-2 border-black p-3"></td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
-                          );
-                        })}
-                     </div>
-                   ))}
-                 </div>
-               );
-             })}
-          </div>
-        </div>
-      )}
-
-      {/* --- BORANG PEMINJAMAN --- */}
-      {isPrintFormOpen && selectedMemberDetail && (
-        <div className="fixed inset-0 bg-white z-[500] flex flex-col overflow-y-auto no-scrollbar print-area" style={{ fontFamily: 'Arial, sans-serif' }}>
-          <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white no-print">
-            <h3 className="text-sm font-black uppercase italic">Borang Peminjaman Murid</h3>
-            <div className="flex gap-4">
-               <button onClick={() => window.print()} className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg transition-transform active:scale-95"><Printer size={14} className="inline mr-2"/> CETAK</button>
-               <button onClick={() => setIsPrintFormOpen(false)} className="p-2 text-white/50"><X size={24}/></button>
-            </div>
-          </div>
-          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black print:p-0">
-             <div className="border-b-2 border-black pb-4 mb-8 text-center text-black">
-                <h2 className="text-lg font-bold uppercase text-black">{adminSettings.schoolName}</h2>
-                <h1 className="text-xl font-black uppercase underline text-black">REKOD PENERIMAAN & PEMULANGAN BUKU TEKS</h1>
-                <h3 className="text-md font-bold mt-1 uppercase text-black">TAHUN {selectedMemberDetail.year} {selectedMemberDetail.className}</h3>
-             </div>
-             <div className="grid grid-cols-2 gap-8 mb-8 text-xs font-bold uppercase text-black">
-                <div className="flex gap-2 items-center text-black">NAMA MURID: <span className="border-b-2 border-black flex-1 font-black text-black">{selectedMemberDetail.name}</span></div>
-                <div className="flex gap-2 items-center text-black">SESI: <span className="border-b-2 border-black flex-1 font-black text-black">{new Date().getFullYear()}</span></div>
-             </div>
-             <table className="w-full border-collapse border-2 border-black text-[9px] text-black">
-                <thead>
-                  <tr className="bg-white">
-                    <th className="border-2 border-black p-1 w-6 uppercase text-black">BIL</th>
-                    <th className="border-2 border-black p-1 w-16 uppercase text-black">KOD</th>
-                    <th className="border-2 border-black p-1 text-left uppercase text-black">NAMA BUKU</th>
-                    <th className="border-2 border-black p-1 w-12 uppercase text-black">RM</th>
-                    <th className="border-2 border-black p-1 w-[280px] uppercase text-black">NO SIRI</th>
-                    <th className="border-2 border-black p-1 w-20 uppercase text-black">TERIMA</th>
-                    <th className="border-2 border-black p-1 w-20 uppercase text-black">PULANG</th>
-                    <th className="border-2 border-black p-1 uppercase text-black">STATUS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="bg-slate-100"><td colSpan={8} className="border-2 border-black px-4 py-1 font-black text-center uppercase text-[10px] text-black">BAHAGIAN 1: BUKU TEKS</td></tr>
-                  {books.filter(b => b.year === selectedMemberDetail.year && b.type === 'Buku Teks').map((b, idx) => {
-                    const data = editableFormData[b.id] || { serial: '', receivedDate: '', returnDate: '', status: '' };
-                    const isDamaged = data.status.toUpperCase().includes('ROSAK') || data.status.toUpperCase().includes('HILANG');
-                    return (
-                      <tr key={b.id}>
-                        <td className="border-2 border-black p-1 text-center font-bold text-black">{idx + 1}.</td>
-                        <td className="border-2 border-black p-1 text-center font-black text-black">{b.code}</td>
-                        <td className="border-2 border-black p-1 font-bold uppercase text-black">{b.title}</td>
-                        <td className="border-2 border-black p-1 text-center font-bold text-black">{b.price.toFixed(2)}</td>
-                        <td className="border-2 border-black p-0"><input type="text" value={data.serial} onChange={e => handleUpdateFormData(b.id, 'serial', e.target.value.toUpperCase())} className="w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase text-black" /></td>
-                        <td className="border-2 border-black p-0"><input type="text" value={data.receivedDate} onChange={e => handleUpdateFormData(b.id, 'receivedDate', e.target.value)} className="w-full h-full text-center text-[10px] outline-none bg-transparent text-black" /></td>
-                        <td className="border-2 border-black p-0"><input type="text" value={data.returnDate} onChange={e => handleUpdateFormData(b.id, 'returnDate', e.target.value)} className="w-full h-full text-center text-[10px] outline-none bg-transparent text-black" /></td>
-                        <td className="border-2 border-black p-0"><input type="text" value={data.status} onChange={e => handleUpdateFormData(b.id, 'status', e.target.value.toUpperCase())} className="w-full h-full text-center font-black text-[7px] outline-none bg-transparent uppercase" style={{ color: isDamaged ? 'red' : 'black' }} /></td>
-                      </tr>
-                    );
-                  })}
-                  <tr className="bg-slate-100"><td colSpan={8} className="border-2 border-black px-4 py-1 font-black text-center uppercase text-[10px] text-black">BAHAGIAN 2: BUKU AKTIVITI</td></tr>
-                  {books.filter(b => b.year === selectedMemberDetail.year && b.type === 'Buku Aktiviti').map((b, idx) => {
-                    const data = editableFormData[b.id] || { serial: '', receivedDate: '', returnDate: '', status: '' };
-                    return (
-                      <tr key={b.id}>
-                        <td className="border-2 border-black p-1 text-center font-bold text-black">{idx + 1}.</td>
-                        <td className="border-2 border-black p-1 text-center font-black text-black">{b.code}</td>
-                        <td className="border-2 border-black p-1 font-bold uppercase text-black">{b.title}</td>
-                        <td className="border-2 border-black p-1 text-center font-bold text-black">{b.price.toFixed(2)}</td>
-                        <td className="border-2 border-black p-0"><input type="text" value={data.serial} onChange={e => handleUpdateFormData(b.id, 'serial', e.target.value.toUpperCase())} className="w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase text-black" /></td>
-                        <td className="border-2 border-black p-0"><input type="text" value={data.receivedDate} onChange={e => handleUpdateFormData(b.id, 'receivedDate', e.target.value)} className="w-full h-full text-center text-[10px] outline-none bg-transparent text-black" /></td>
-                        <td colSpan={2} className="border-2 border-black p-1 text-center italic text-[7px] font-black uppercase bg-slate-50 text-black">KEGUNAAN MURID</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-             </table>
-          </div>
-        </div>
-      )}
-
-      {/* --- PAPARAN CETAK LOG REKOD --- */}
-      {isPrintHistoryOpen && (
-        <div className="fixed inset-0 bg-white z-[700] flex flex-col overflow-y-auto no-scrollbar print-area" style={{ fontFamily: 'Arial, sans-serif' }}>
-          <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white no-print">
-            <h3 className="text-sm font-black uppercase italic">Prapapar Log Rekod {MONTHS[historyMonth].toUpperCase()}</h3>
-            <div className="flex gap-4">
-               <button onClick={() => window.print()} className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg"><Printer size={14} className="inline mr-2"/> CETAK SEKARANG</button>
-               <button onClick={() => setIsPrintHistoryOpen(false)} className="p-2 text-white/50"><X size={24}/></button>
-            </div>
-          </div>
-          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black print:p-0">
-             <div className="border-b-4 border-black pb-4 mb-10 text-center text-black">
-                <h2 className="text-lg font-bold uppercase text-black">{adminSettings.schoolName}</h2>
-                <h1 className="text-2xl font-black uppercase underline mt-2 text-black">LOG REKOD TRANSAKSI BUKU TEKS - {MONTHS[historyMonth].toUpperCase()} {new Date().getFullYear()}</h1>
-             </div>
-             <table className="w-full border-collapse border-2 border-black text-[10px] text-black">
-                <thead>
-                  <tr className="bg-slate-100">
-                    <th className="border-2 border-black p-3 text-center w-12 uppercase text-black">BIL</th>
-                    <th className="border-2 border-black p-3 text-left uppercase text-black">NAMA PENGGUNA</th>
-                    <th className="border-2 border-black p-3 text-left uppercase text-black">JUDUL BUKU</th>
-                    <th className="border-2 border-black p-3 text-center uppercase text-black">TINDAKAN</th>
-                    <th className="border-2 border-black p-3 text-right uppercase text-black">TARIKH & MASA</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map((t, idx) => (
-                    <tr key={t.id}>
-                      <td className="border-2 border-black p-3 text-center font-bold text-black">{idx + 1}</td>
-                      <td className="border-2 border-black p-3 font-black uppercase text-black">{t.userName}</td>
-                      <td className="border-2 border-black p-3 font-bold uppercase text-black">{t.bookTitle}</td>
-                      <td className="border-2 border-black p-3 text-center font-black uppercase italic text-black">{t.action}</td>
-                      <td className="border-2 border-black p-3 text-right font-medium text-black">{t.timestamp}</td>
-                    </tr>
-                  ))}
-                </tbody>
-             </table>
-          </div>
-        </div>
-      )}
-
-      {/* --- MODAL BUTIRAN AHLI --- */}
-      {isMemberDetailOpen && selectedMemberDetail && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-xl z-[200] flex items-center justify-center p-4 no-print">
-          <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border-b-[15px] border-indigo-600">
-            <div className="p-8 border-b bg-indigo-50/50 flex justify-between items-center text-indigo-950">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl shrink-0">{selectedMemberDetail.name.charAt(0)}</div>
-                <div>
-                   <h3 className="text-xl font-black uppercase italic leading-none">{selectedMemberDetail.name}</h3>
-                   <p className="text-[9px] font-black text-indigo-700 uppercase mt-2">
-                      {selectedMemberDetail.type} {selectedMemberDetail.year ? `• TAHUN ${selectedMemberDetail.year} ${selectedMemberDetail.className || ''}` : ''}
-                   </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => { setMemberToEdit({ ...selectedMemberDetail }); setIsEditingMember(true); }} className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg"><Edit2 size={20}/></button>
-                <button onClick={() => setIsMemberDetailOpen(false)} className="p-2 text-slate-300 hover:text-rose-500"><X size={20}/></button>
-              </div>
-            </div>
-            <div className="p-8 overflow-y-auto max-h-[60vh] space-y-4 no-scrollbar">
-              <div className="grid grid-cols-2 gap-2">
-                 <button onClick={() => { setBorrowFilterYear(selectedMemberDetail.year || 1); setIsBorrowModalOpen(true); }} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-lg transition-transform active:scale-95"><Plus className="inline mr-1" size={14}/> PINJAM BARU</button>
-                 {selectedMemberDetail.type === 'Murid' && <button onClick={() => setIsPrintFormOpen(true)} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-lg transition-transform active:scale-95"><FileText className="inline mr-1" size={14}/> CETAK BORANG</button>}
-              </div>
-              <div className="border-t pt-4">
-                <h4 className="text-[10px] font-black uppercase italic text-indigo-950 mb-4">Pinjaman Aktif</h4>
-                <div className="space-y-2">
-                  {getActiveLoans(selectedMemberDetail.name).map(loan => (
-                    <div key={loan.id} className="p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-between">
-                      <p className="font-black text-indigo-950 text-[10px] uppercase truncate flex-1 pr-4">{loan.bookTitle}</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleAction(loan.bookId, 'Pemulangan', selectedMemberDetail.name, selectedMemberDetail.type)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-black text-[8px] uppercase">PULANG</button>
-                        <button onClick={() => handleAction(loan.bookId, 'Pulang Rosak/Hilang', selectedMemberDetail.name, selectedMemberDetail.type)} className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white"><AlertTriangle size={16}/></button>
-                      </div>
-                    </div>
-                  ))}
-                  {getActiveLoans(selectedMemberDetail.name).length === 0 && <p className="text-center py-10 opacity-60 text-[10px] font-black italic text-indigo-950">Tiada pinjaman aktif.</p>}
-                </div>
-              </div>
-            </div>
-            <div className="p-6 bg-slate-50 border-t flex justify-between items-center">
-              <button onClick={() => { if(confirm("Padam ahli?")) { setMembers(prev => prev.filter(m => m.id !== selectedMemberDetail.id)); setIsMemberDetailOpen(false); }}} className="text-rose-600 text-[9px] font-black uppercase flex items-center gap-2 hover:text-rose-800 font-black"><Trash2 size={16}/> PADAM AHLI</button>
-              <button onClick={() => setIsMemberDetailOpen(false)} className="px-6 py-3 bg-white border rounded-xl text-[9px] font-black uppercase text-indigo-950 shadow-sm">TUTUP</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- MODALS DAFTAR/EDIT BUKU --- */}
-      {(isAddingBook || isEditingBook) && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200">
-            <h3 className="text-xl font-black uppercase italic mb-8">{isAddingBook ? 'Daftar Buku' : 'Kemaskini Buku'}</h3>
-            <div className="space-y-6">
-              <div>
-                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">KOD BUKU (BT/BA)</label>
-                <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[10px] bg-slate-50 outline-none focus:border-indigo-600" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
-              </div>
-              <div>
-                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">JUDUL BUKU PENUH</label>
-                <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[10px] bg-slate-50 outline-none focus:border-indigo-600" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">TAHUN</label>
-                  <select className="w-full p-4 border-2 rounded-xl font-black text-[10px] bg-slate-50 outline-none" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y}>TAHUN {y}</option>)}</select>
-                </div>
-                <div>
-                  <label className="text-[12px] font-black uppercase text-emerald-700 mb-1 block ml-1 border-b-2 border-emerald-100">HARGA BUKU (RM)</label>
-                  <input type="number" step="0.01" className="w-full p-4 border-2 border-emerald-200 rounded-xl font-black text-[11px] bg-emerald-50 text-emerald-800 outline-none" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
-                </div>
-              </div>
-              <div>
-                <label className="text-[12px] font-black uppercase text-blue-700 mb-1 block ml-1 border-b-2 border-blue-100">JUMLAH STOK (UNIT)</label>
-                <input type="number" className="w-full p-4 border-2 border-blue-200 rounded-xl font-black text-[11px] bg-blue-50 text-blue-900 outline-none focus:border-blue-600" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
-              </div>
-              <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase font-black shadow-xl tracking-widest transition-transform active:scale-95">SIMPAN DATA BUKU</button>
-              <button onClick={() => { setIsAddingBook(false); setIsEditingBook(false); }} className="w-full py-2 text-slate-500 uppercase text-[9px] font-bold">BATAL</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isAddingMember && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200">
-            <h3 className="text-xl font-black uppercase italic mb-8">Daftar Ahli Baru</h3>
-            <div className="space-y-6">
-              <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
-                {['Guru', 'Murid'].map(t => (
-                  <button key={t} onClick={() => setNewMember({...newMember, type: t as UserType})} className={`flex-1 py-3 rounded-lg font-black text-[9px] uppercase transition-all ${newMember.type === t ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600'}`}>{t}</button>
-                ))}
-              </div>
-              <div>
-                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">NAMA PENUH</label>
-                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[10px] bg-slate-50 outline-none" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
-              </div>
-              {newMember.type === 'Murid' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">TAHUN</label>
-                    <div className="flex gap-2">
-                      {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y, className: ''})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[10px] ${newMember.year === y ? 'bg-indigo-600 text-white' : 'bg-slate-50 text-slate-600'}`}>{y}</button>)}
-                    </div>
-                  </div>
-                  {classesConfig[newMember.year || 1].length > 0 && (
-                    <div>
-                      <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">PILIH KELAS</label>
-                      <select className="w-full p-4 border-2 rounded-xl font-black text-[10px] bg-slate-50 outline-none uppercase" value={newMember.className} onChange={e => setNewMember({...newMember, className: e.target.value})}>
-                        <option value="">- PILIH KELAS -</option>
-                        {classesConfig[newMember.year || 1].map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
-                  )}
-                </div>
-              )}
-              <button onClick={handleAddMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl transition-transform active:scale-95">DAFTAR AHLI</button>
-              <button onClick={() => setIsAddingMember(false)} className="w-full py-3 text-slate-500 font-bold uppercase text-[9px]">BATAL</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isEditingMember && memberToEdit && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200">
-            <h3 className="text-xl font-black uppercase italic mb-8">Kemaskini Ahli</h3>
-            <div className="space-y-6">
-              <div>
-                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">NAMA PENUH</label>
-                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[10px] bg-slate-50 outline-none" value={memberToEdit.name} onChange={e => setMemberToEdit({...memberToEdit, name: e.target.value.toUpperCase()})} />
-              </div>
-              <button onClick={handleUpdateMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl transition-transform active:scale-95">SIMPAN PERUBAHAN</button>
-              <button onClick={() => setIsEditingMember(false)} className="w-full py-3 text-slate-500 font-bold uppercase text-[9px]">BATAL</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {isBorrowModalOpen && selectedMemberDetail && (
-        <div className="fixed inset-0 bg-indigo-950/95 backdrop-blur-xl z-[300] flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl flex flex-col border-b-[15px] border-indigo-600 text-indigo-950 animate-in zoom-in duration-300">
-            <div className="p-8 border-b flex justify-between items-center">
-              <div><h3 className="text-xl font-black uppercase italic">Pilih Buku Pinjaman</h3><p className="text-[10px] font-black text-indigo-600 mt-1 uppercase">{selectedMemberDetail.name}</p></div>
-              <button onClick={() => {setIsBorrowModalOpen(false); setSelectedBooksToBorrow(new Set());}} className="text-slate-300 hover:text-rose-500"><X size={24}/></button>
-            </div>
-            <div className="px-8 pt-6">
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                {YEARS.map(y => <button key={y} onClick={() => setBorrowFilterYear(y)} className={`min-w-[70px] py-2.5 rounded-lg font-black text-[9px] border-2 uppercase transition-all ${borrowFilterYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-slate-50 text-slate-600'}`}>TAHUN {y}</button>)}
-              </div>
-            </div>
-            <div className="p-8 pt-4 overflow-y-auto max-h-[45vh] grid grid-cols-1 md:grid-cols-2 gap-3 no-scrollbar">
-              {books.filter(b => b.year === borrowFilterYear).map(book => {
-                const isSelected = selectedBooksToBorrow.has(book.id);
-                const isAlreadyBorrowed = getActiveLoans(selectedMemberDetail.name).some(l => l.bookId === book.id);
-                return (
-                  <div key={book.id} onClick={isAlreadyBorrowed ? undefined : () => { const s = new Set(selectedBooksToBorrow); s.has(book.id) ? s.delete(book.id) : s.add(book.id); setSelectedBooksToBorrow(s); }} className={`p-4 rounded-xl border-2 transition-all flex justify-between items-center ${isAlreadyBorrowed ? 'bg-slate-100 opacity-60' : isSelected ? 'bg-indigo-600 text-white shadow-md' : 'bg-white hover:border-indigo-300 cursor-pointer'}`}>
-                    <div className="overflow-hidden flex-1 text-indigo-950"><h4 className={`font-black text-[10px] uppercase truncate ${isSelected ? 'text-white' : ''}`}>{book.title}</h4><p className={`text-[8px] uppercase mt-1 ${isSelected ? 'text-white/70' : 'text-slate-600 font-bold'}`}>{book.code} • {isAlreadyBorrowed ? 'SUDAH PINJAM' : `STOK: ${book.stock}`}</p></div>
-                    {isSelected && <CheckCircle size={16} className="text-white"/>}{isAlreadyBorrowed && <Lock size={14}/>}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="p-8 border-t flex items-center justify-between bg-slate-50">
-              <span className="text-[11px] font-black uppercase italic text-indigo-950 tracking-widest">{selectedBooksToBorrow.size} UNIT DIPILIH</span>
-              <button onClick={() => { 
-                Array.from(selectedBooksToBorrow).forEach((id: any) => handleAction(id, 'Pinjaman', selectedMemberDetail.name, selectedMemberDetail.type)); 
-                setIsBorrowModalOpen(false); 
-                setSelectedBooksToBorrow(new Set()); 
-              }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-xl text-[10px] uppercase shadow-xl transition-transform active:scale-95" disabled={selectedBooksToBorrow.size === 0}>SAHKAN PINJAMAN</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-};
-
-export default App;
+                    <input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus
