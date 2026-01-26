@@ -10,8 +10,8 @@ export const getStockInsight = async (books: Book[], transactions: Transaction[]
     Berikan rumusan ringkas dalam Bahasa Melayu tentang:
     1. Buku mana yang stoknya kritikal (kurang dari 20 unit).
     2. Trend peminjaman terkini.
-    3. Cadangan tindakan untuk admin.
-    Pastikan jawapan dalam format markdown yang kemas.
+    3. Cadangan tindakan untuk admin (e.g. buat pesanan baru atau pelarasan stok).
+    Pastikan jawapan dalam format markdown yang kemas dan profesional.
   `;
 
   try {
@@ -31,37 +31,17 @@ export const getStockInsight = async (books: Book[], transactions: Transaction[]
 };
 
 export const extractMembersFromFile = async (fileData: string, mimeType: string) => {
-  const prompt = `Anda ialah sistem yang mengekstrak data senarai murid sekolah di Malaysia.
+  const prompt = `TUGAS: Anda adalah robot pengekstrak data OCR yang sangat teliti. Ekstrak senarai nama murid daripada dokumen ini.
 
-TUGAS:
-Daripada input yang diberi (PDF / imej / teks), ekstrak MAKLUMAT MURID sahaja.
+SOP KETAT (WAJIB PATUH):
+1. CARI "GLOBAL YEAR": Lihat pada tajuk besar dokumen atau bahagian atas (Header). Jika tertulis "TAHUN 1" atau "DARJAH 1", maka SEMUA murid dalam fail ini MESTI diletakkan sebagai Year: 1.
+2. DILARANG KERAS menukar tahun secara rawak (seperti 1, 2, 3...) mengikut baris. Jika dokumen itu dokumen Tahun 1, pastikan output SEMUA rekod adalah tahun 1.
+3. NAMA MURID: Ekstrak dengan ejaan tepat dalam HURUF BESAR.
+4. KELAS: Jika tajuk dokumen menyatakan nama kelas (contoh: "1 AMANAH"), gunakan "AMANAH" untuk semua murid tersebut kecuali jika ada kolum kelas yang berbeza bagi setiap baris.
+5. Jika tiada maklumat tahun dikesan langsung, gunakan nilai default: 1.
+6. JANGAN REKA DATA. Jika ada 20 nama, pulangkan 20 objek sahaja.
 
-PERATURAN:
-1. Kembalikan output dalam format JSON sahaja.
-2. Jangan sertakan penerangan, ayat tambahan, markdown atau simbol lain.
-3. Jika data tidak lengkap, isikan nilai sebagai null.
-4. Pastikan JSON boleh terus digunakan dalam aplikasi.
-
-FORMAT OUTPUT WAJIB:
-{
-  "murid": [
-    {
-      "bil": 1,
-      "nama": "NAMA PENUH MURID",
-      "kelas": "CONTOH: 1A / 2 CEMERLANG / 5 IBNU SINA",
-      "tahun": 1
-    }
-  ]
-}
-
-GARIS PANDUAN:
-- "bil" mesti nombor bermula dari 1 dan bertambah.
-- "nama" dalam huruf besar.
-- "tahun" mestilah nombor sahaja (1–6).
-- Abaikan teks lain seperti tajuk, logo, nama sekolah, tarikh, tandatangan.
-- Fokus hanya kepada senarai murid.
-
-MULA EKSTRAK SEKARANG.`;
+OUTPUT: Mesti dalam JSON Array.`;
 
   try {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -82,36 +62,39 @@ MULA EKSTRAK SEKARANG.`;
         responseMimeType: "application/json",
         thinkingConfig: { thinkingBudget: 0 },
         responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            murid: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  bil: { type: Type.INTEGER },
-                  nama: { type: Type.STRING },
-                  kelas: { type: Type.STRING },
-                  tahun: { type: Type.INTEGER }
-                },
-                required: ["bil", "nama", "kelas", "tahun"]
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: {
+                type: Type.STRING,
+                description: "Nama penuh murid (HURUF BESAR).",
+              },
+              year: {
+                type: Type.INTEGER,
+                description: "Angka tahun 1-6 sahaja. Mesti konsisten dengan konteks dokumen.",
+              },
+              className: {
+                type: Type.STRING,
+                description: "Nama kelas (HURUF BESAR).",
               }
-            }
-          },
-          required: ["murid"]
+            },
+            required: ["name", "year", "className"]
+          }
         }
       }
     });
 
-    const text = response.text || "{\"murid\": []}";
-    const parsed = JSON.parse(text);
-    const data = parsed.murid || [];
+    const text = response.text || "[]";
+    const data = JSON.parse(text);
     
-    // Pembersihan tambahan & mapping ke format aplikasi
-    return data.map((m: any) => ({
-      name: String(m.nama || 'TANPA NAMA').toUpperCase(),
-      year: Number(m.tahun) || 1,
-      className: String(m.kelas || '').toUpperCase().trim()
+    if (!Array.isArray(data)) return [];
+    
+    // Pembersihan tambahan di peringkat kod untuk memastikan data selamat
+    return data.map(m => ({
+      name: String(m.name || 'TANPA NAMA').toUpperCase(),
+      year: Number(m.year) || 1,
+      className: String(m.className || '').toUpperCase()
     })) as Partial<Member>[];
 
   } catch (error) {
