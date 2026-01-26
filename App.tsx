@@ -150,6 +150,35 @@ const App: React.FC = () => {
     }
   }, [selectedMemberDetail, books, transactions, persistentForms]);
 
+  // --- IMAGE COMPRESSION LOGIC (Untuk kelajuan) ---
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 1200; 
+          let width = img.width;
+          let height = img.height;
+          if (width > MAX_WIDTH) {
+            height = (MAX_WIDTH / width) * height;
+            width = MAX_WIDTH;
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+          resolve(compressedBase64);
+        };
+      };
+      reader.onerror = reject;
+    });
+  };
+
   const handleUpdateFormData = (bookId: string, field: string, value: string) => {
     if (!selectedMemberDetail) return;
     const memberId = selectedMemberDetail.id;
@@ -353,17 +382,26 @@ const App: React.FC = () => {
 
     setIsExtracting(true);
     try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64 = (event.target?.result as string).split(',')[1];
-        const result = await extractMembersFromFile(base64, file.type);
-        setExtractedMembers(result);
-        setIsExtracting(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      alert("Gagal memproses fail. Sila pastikan fail anda dalam format PDF atau Gambar yang jelas.");
+      let base64 = "";
+      if (file.type.startsWith('image/')) {
+        // Mampat gambar sebelum hantar
+        base64 = await compressImage(file);
+      } else {
+        const reader = new FileReader();
+        base64 = await new Promise((resolve) => {
+          reader.onload = (event) => resolve((event.target?.result as string).split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+      }
+      
+      const result = await extractMembersFromFile(base64, file.type.startsWith('image/') ? 'image/jpeg' : file.type);
+      setExtractedMembers(result);
       setIsExtracting(false);
+    } catch (err) {
+      alert("Gagal memproses fail. Sila pastikan fail anda jelas.");
+      setIsExtracting(false);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
