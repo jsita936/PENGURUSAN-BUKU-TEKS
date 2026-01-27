@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Book, Transaction, UserType, TransactionStatus, ActionType, BookType, Member, AdminSettings, ResolutionMethod, ResolutionStatus } from './types';
 import { INITIAL_BOOKS, YEARS, CATEGORIES } from './constants';
-import { getStockInsight, extractMembersFromFile, extractMembersFromText } from './services/geminiService';
+import { getStockInsight, extractMembersFromFile } from './services/geminiService';
 import { 
   Library, 
   History, 
@@ -84,8 +85,6 @@ const App: React.FC = () => {
   const [regPass, setRegPass] = useState('');
 
   const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'members' | 'damages' | 'history' | 'session' | 'settings' | 'import'>('overview');
-  const [importMode, setImportMode] = useState<'file' | 'text'>('file');
-  const [manualText, setManualText] = useState('');
   const [inventoryType, setInventoryType] = useState<BookType>('Buku Teks');
   const [selectedYear, setSelectedYear] = useState<number>(1);
   const [memberTypeView, setMemberTypeView] = useState<UserType>('Guru');
@@ -114,6 +113,8 @@ const App: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   // Import states
+  const [importMode, setImportMode] = useState<'text' | 'file'>('text');
+  const [manualText, setManualText] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedMembers, setExtractedMembers] = useState<Partial<Member>[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -350,6 +351,65 @@ const App: React.FC = () => {
     }
   };
 
+  // --- SMART OFFLINE TEXT PARSER (IMBAS OFFLINE TANPA API) ---
+  const handleTextImport = () => {
+    if (!manualText.trim()) return alert("Sila masukkan senarai nama murid.");
+    
+    setIsExtracting(true);
+    // Simulate slight processing delay for UX (still strictly local)
+    setTimeout(() => {
+      try {
+        const lines = manualText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        const results: Partial<Member>[] = [];
+        let currentYear = 1;
+        let currentClass = "";
+
+        lines.forEach(line => {
+          const upperLine = line.toUpperCase();
+          
+          // Regex untuk mengesan pengepala kelas seperti "1 AMANAH" atau "TAHUN 1 BESTARI"
+          // Pattern: ^(?:TAHUN\s+)?([1-6])\s+([A-Z0-9\s-]+)$
+          const classHeaderMatch = upperLine.match(/^(?:TAHUN\s+)?([1-6])\s+([A-Z0-9\s-]+)$/);
+          
+          if (classHeaderMatch) {
+            currentYear = parseInt(classHeaderMatch[1]);
+            currentClass = classHeaderMatch[2].trim();
+          } else {
+            // Jika baris itu cuma mengandungi "TAHUN X" tanpa nama kelas
+            const yearOnlyMatch = upperLine.match(/^TAHUN\s+([1-6])$/);
+            if (yearOnlyMatch) {
+              currentYear = parseInt(yearOnlyMatch[1]);
+              currentClass = ""; // Reset kelas jika hanya jumpa "Tahun X"
+            } else {
+              // Jika ia adalah nama murid. 
+              // Buang sebarang nombor siri di depan (e.g. "1. ALI" -> "ALI")
+              const nameOnly = upperLine.replace(/^\d+[\s\.\)]+/, '').trim();
+              
+              if (nameOnly && nameOnly.length > 1) {
+                results.push({
+                  name: nameOnly,
+                  year: currentYear,
+                  className: currentClass || 'TIADA'
+                });
+              }
+            }
+          }
+        });
+
+        if (results.length === 0) {
+          alert("Sistem tidak menemui nama murid. Sila pastikan format betul.");
+        } else {
+          setExtractedMembers(results);
+          setManualText('');
+        }
+      } catch (err) {
+        alert("Gagal memproses teks. Sila cuba lagi.");
+      } finally {
+        setIsExtracting(false);
+      }
+    }, 800);
+  };
+
   const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -370,20 +430,6 @@ const App: React.FC = () => {
     }
   };
 
-  const handleTextImport = async () => {
-    if (!manualText.trim()) return alert("Sila masukkan senarai nama murid.");
-    setIsExtracting(true);
-    try {
-      const result = await extractMembersFromText(manualText);
-      setExtractedMembers(result);
-      setManualText('');
-    } catch (err) {
-      alert("Gagal memproses teks.");
-    } finally {
-      setIsExtracting(false);
-    }
-  };
-
   const handleConfirmImport = () => {
     const newMembersList: Member[] = extractedMembers.map(m => ({
       id: Math.random().toString(36).substr(2, 9),
@@ -393,9 +439,10 @@ const App: React.FC = () => {
       className: (m.className || '').toUpperCase()
     }));
 
+    // Auto-create classes if they don't exist
     const newClassesConfig = { ...classesConfig };
     newMembersList.forEach(m => {
-      if (m.year && m.className && !newClassesConfig[m.year].includes(m.className)) {
+      if (m.year && m.className && m.className !== 'TIADA' && !newClassesConfig[m.year].includes(m.className)) {
         newClassesConfig[m.year] = [...newClassesConfig[m.year], m.className].sort();
       }
     });
@@ -407,6 +454,7 @@ const App: React.FC = () => {
     setActiveTab('members');
   };
 
+  // --- FUNGSI BACKUP & RESTORE ---
   const handleBackupData = () => {
     const backupObj = {
       books,
@@ -562,57 +610,48 @@ const App: React.FC = () => {
           {activeTab === 'import' && (
             <div className="max-w-4xl mx-auto space-y-8 pb-10">
               <div className="flex gap-4 p-2 bg-indigo-50 rounded-[2rem] w-fit mx-auto shadow-inner border border-indigo-100">
-                <button onClick={() => setImportMode('file')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase transition-all flex items-center gap-3 ${importMode === 'file' ? 'bg-indigo-600 text-white shadow-lg' : 'text-indigo-400'}`}><FileUp size={18}/> FAIL / GAMBAR</button>
-                <button onClick={() => setImportMode('text')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase transition-all flex items-center gap-3 ${importMode === 'text' ? 'bg-indigo-600 text-white shadow-lg' : 'text-indigo-400'}`}><TypeIcon size={18}/> TAMPAL TEKS</button>
+                <button onClick={() => setImportMode('text')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase transition-all flex items-center gap-3 ${importMode === 'text' ? 'bg-indigo-600 text-white shadow-lg' : 'text-indigo-400 font-black'}`}><TypeIcon size={18}/> TAMPAL TEKS (OFFLINE)</button>
+                <button onClick={() => setImportMode('file')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase transition-all flex items-center gap-3 ${importMode === 'file' ? 'bg-indigo-600 text-white shadow-lg' : 'text-indigo-400 font-black'}`}><FileUp size={18}/> FAIL / GAMBAR (AI)</button>
               </div>
 
               <div className="bg-white p-12 rounded-[3rem] shadow-xl border-4 border-dashed border-indigo-600 text-center space-y-6">
                 {isExtracting ? (
                   <div className="py-10 space-y-6">
                     <Loader2 size={64} className="text-indigo-600 animate-spin mx-auto" />
-                    <p className="text-sm font-black uppercase italic text-indigo-950">AI Sedang Menyusun Data...</p>
+                    <p className="text-sm font-black uppercase italic text-indigo-950">Sedang Memproses Offline...</p>
                   </div>
                 ) : (
                   <>
                     <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
                        {importMode === 'file' ? <UploadCloud size={48} className="text-indigo-600" /> : <TypeIcon size={48} className="text-indigo-600" />}
                     </div>
-                    {importMode === 'file' ? (
-                      <div>
-                        <h3 className="text-2xl font-black uppercase italic text-indigo-950">Imbas Senarai Murid Pukal</h3>
-                        <p className="text-[11px] text-slate-700 font-bold uppercase mt-2">Muat naik fail PDF, Gambar Jadual Kelas, atau Teks senarai nama murid.</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <h3 className="text-2xl font-black uppercase italic text-indigo-950">Tampal Teks Manual</h3>
-                        <p className="text-[11px] text-slate-700 font-bold uppercase mt-2">Salin senarai nama dari WhatsApp atau Word dan tampal di bawah.</p>
-                      </div>
-                    )}
-                    
-                    {importMode === 'file' ? (
-                      <>
-                        <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".pdf,image/*" />
-                        <button 
-                          onClick={() => fileInputRef.current?.click()} 
-                          className="px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl transition-all active:scale-95 flex items-center gap-3 mx-auto"
-                        >
-                          PILIH FAIL SENARAI NAMA
-                        </button>
-                      </>
-                    ) : (
+                    {importMode === 'text' ? (
                       <div className="space-y-4">
+                        <h3 className="text-2xl font-black uppercase italic text-indigo-950">Tampal Teks Pintar (Offline)</h3>
+                        <div className="text-[11px] text-slate-700 font-bold uppercase space-y-1">
+                          <p>Contoh format:</p>
+                          <div className="bg-indigo-50 p-3 rounded-xl inline-block text-left normal-case border border-indigo-100 text-indigo-950">
+                            1 Amanah<br/>
+                            Ahmad Ali<br/>
+                            Siti Sarah<br/>
+                            2 Bestari<br/>
+                            Ali bin Abu
+                          </div>
+                        </div>
                         <textarea 
-                          className="w-full h-48 p-6 border-2 rounded-3xl bg-slate-50 font-bold text-xs outline-none focus:border-indigo-600 transition-all uppercase no-scrollbar"
-                          placeholder="Contoh:&#10;1. AHMAD BIN ALI - 1 AMANAH&#10;2. SITI AISYAH - 1 AMANAH"
+                          className="w-full h-64 p-6 border-2 rounded-3xl bg-slate-50 font-black text-xs outline-none focus:border-indigo-600 transition-all uppercase no-scrollbar text-indigo-950"
+                          placeholder="Tampal senarai nama di sini..."
                           value={manualText}
                           onChange={e => setManualText(e.target.value)}
                         />
-                        <button 
-                          onClick={handleTextImport}
-                          className="px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl transition-all active:scale-95 flex items-center gap-3 mx-auto"
-                        >
-                          PROSES TEKS SENARAI
-                        </button>
+                        <button onClick={handleTextImport} className="mt-6 px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl transition-all active:scale-95 flex items-center gap-3 mx-auto">PROSES SENARAI TEKS</button>
+                      </div>
+                    ) : (
+                      <div>
+                        <h3 className="text-2xl font-black uppercase italic text-indigo-950">Imbas Senarai (AI)</h3>
+                        <p className="text-[11px] text-slate-700 font-bold uppercase mt-2">Muat naik fail PDF atau Gambar untuk diproses oleh AI (Memerlukan Internet).</p>
+                        <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".pdf,image/*" />
+                        <button onClick={() => fileInputRef.current?.click()} className="mt-6 px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl transition-all active:scale-95 flex items-center gap-3 mx-auto">PILIH FAIL</button>
                       </div>
                     )}
                   </>
@@ -621,28 +660,33 @@ const App: React.FC = () => {
 
               {extractedMembers.length > 0 && (
                 <div className="bg-white rounded-[3rem] shadow-2xl border-2 border-indigo-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="p-10 border-b bg-indigo-50 flex justify-between items-center gap-4 flex-col sm:flex-row">
+                  <div className="p-10 border-b bg-indigo-50 flex justify-between items-center flex-col sm:flex-row gap-4">
                     <div>
-                      <h3 className="text-2xl font-black uppercase italic text-indigo-950">Semakan Prapapar</h3>
-                      <p className="text-[11px] text-indigo-700 font-black uppercase">Sila sahkan ketepatan data sebelum pendaftaran rasmi</p>
+                      <h3 className="text-2xl font-black uppercase italic text-indigo-950">Sahkan Data</h3>
+                      <p className="text-[11px] text-indigo-700 font-black uppercase">{extractedMembers.length} Rekod Dikesan</p>
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => setExtractedMembers([])} className="px-6 py-4 bg-white border-2 border-rose-100 text-rose-500 rounded-xl font-black text-xs uppercase">BATAL</button>
-                      <button onClick={handleConfirmImport} className="px-10 py-5 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-emerald-700 transition-all">SAHKAN & DAFTAR ({extractedMembers.length} MURID)</button>
+                      <button onClick={handleConfirmImport} className="px-10 py-5 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-emerald-700 transition-all">DAFTAR SEMUA</button>
                     </div>
                   </div>
                   <div className="overflow-x-auto max-h-[600px] no-scrollbar">
                     <table className="w-full text-left">
                       <thead className="bg-indigo-950 text-[10px] font-black uppercase text-white sticky top-0">
-                        <tr><th className="px-10 py-5">BIL</th><th className="px-10 py-5">NAMA PENUH MURID</th><th className="px-10 py-5 text-center">TAHUN</th><th className="px-10 py-5">KELAS</th></tr>
+                        <tr>
+                          <th className="px-10 py-5">BIL</th>
+                          <th className="px-10 py-5">NAMA</th>
+                          <th className="px-10 py-5 text-center">TAHUN</th>
+                          <th className="px-10 py-5">KELAS</th>
+                        </tr>
                       </thead>
-                      <tbody className="divide-y-2 divide-slate-100 text-[11px] font-black">
+                      <tbody className="divide-y-2 divide-slate-100 text-[11px] font-black text-indigo-950">
                         {extractedMembers.map((m, idx) => (
                           <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                             <td className="px-10 py-5 text-slate-500">{idx + 1}</td>
-                            <td className="px-10 py-5 uppercase text-indigo-950 tracking-tight">{m.name}</td>
-                            <td className="px-10 py-5 text-center"><span className="px-3 py-1 bg-indigo-100 text-indigo-950 rounded-lg">TAHUN {m.year}</span></td>
-                            <td className="px-10 py-5 uppercase text-indigo-700 font-black">{m.className || 'TIDAK DIKETAHUI'}</td>
+                            <td className="px-10 py-5 uppercase font-black">{m.name}</td>
+                            <td className="px-10 py-5 text-center">T{m.year}</td>
+                            <td className="px-10 py-5 uppercase text-indigo-700">{m.className || 'TIADA'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -650,83 +694,6 @@ const App: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {activeTab === 'settings' && (
-            <div className="max-w-3xl mx-auto py-10 space-y-8">
-              <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-indigo-100">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-                    <RefreshCw size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-black uppercase italic text-indigo-950">Sinkronasi & Backup Data</h3>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pindah data antara laptop dan telefon</p>
-                  </div>
-                </div>
-                
-                <p className="text-[10px] font-bold text-slate-600 mb-8 leading-relaxed bg-slate-50 p-4 rounded-2xl border">
-                  PANDUAN: Tekan butang <b>BACKUP DATA</b> untuk muat turun fail maklumat sekolah cikgu. Kemudian, hantar fail tersebut ke phone (guna WhatsApp/Telegram). Di phone, buka app ini dan tekan <b>MUAT NAIK BACKUP</b> untuk masukkan fail tadi.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button 
-                    onClick={handleBackupData}
-                    className="flex items-center justify-center gap-3 px-6 py-5 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-indigo-800 transition-all active:translate-y-1"
-                  >
-                    <Download size={20} /> MUAT TURUN BACKUP
-                  </button>
-                  
-                  <label className="flex items-center justify-center gap-3 px-6 py-5 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-emerald-800 transition-all active:translate-y-1 cursor-pointer text-center">
-                    <Upload size={20} /> MUAT NAIK BACKUP
-                    <input type="file" className="hidden" accept=".json" onChange={handleRestoreData} />
-                  </label>
-                </div>
-              </div>
-
-              <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-slate-100">
-                <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Tetapan Pentadbir</h3>
-                <div className="space-y-6 font-bold">
-                  <div>
-                    <label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">ID PENGGUNA</label>
-                    <input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">KATA LALUAN</label>
-                    <input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} />
-                  </div>
-                  <div>
-                    <label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">NAMA SEKOLAH</label>
-                    <input type="text" className="w-full p-4 border-2 rounded-xl uppercase text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} />
-                  </div>
-                  <button onClick={() => { localStorage.setItem('spbt_settings', JSON.stringify(adminSettings)); alert("Simpan!"); }} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase shadow-xl font-black tracking-widest hover:bg-indigo-700">KEMASKINI TETAPAN</button>
-                </div>
-              </div>
-
-              <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-emerald-100">
-                <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Pengurusan Nama Kelas</h3>
-                <div className="space-y-6">
-                   <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2">
-                     {YEARS.map(y => (
-                       <button key={y} onClick={() => setClassConfigYear(y)} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${classConfigYear === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>TAHUN {y}</button>
-                     ))}
-                   </div>
-                   <div className="flex gap-2">
-                     <input type="text" placeholder="CONTOH: AMANAH" className="flex-1 p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600" value={newClassName} onChange={e => setNewClassName(e.target.value)} />
-                     <button onClick={handleAddClass} className="px-6 py-4 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase shadow-lg">TAMBAH</button>
-                   </div>
-                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                     {classesConfig[classConfigYear].map(c => (
-                       <div key={c} className="p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl flex items-center justify-between">
-                         <span className="text-[10px] font-black uppercase text-indigo-900">{c}</span>
-                         <button onClick={() => handleRemoveClass(classConfigYear, c)} className="text-rose-400 hover:text-rose-600"><Trash2 size={14}/></button>
-                       </div>
-                     ))}
-                     {classesConfig[classConfigYear].length === 0 && <p className="col-span-full py-6 text-center text-slate-500 text-[10px] font-black italic uppercase">Belum ada kelas didaftarkan untuk Tahun {classConfigYear}.</p>}
-                   </div>
-                </div>
-              </div>
             </div>
           )}
 
@@ -828,10 +795,10 @@ const App: React.FC = () => {
                      <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-600 border-b">
                        <tr><th className="px-8 py-6">PENGGUNA</th><th className="px-8 py-6">JUDUL BUKU</th><th className="px-8 py-6 text-center">TINDAKAN</th><th className="px-8 py-6 text-right">TARIKH</th></tr>
                      </thead>
-                     <tbody className="divide-y text-[10px] font-bold">
+                     <tbody className="divide-y text-[10px] font-bold text-indigo-950">
                        {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map(t => (
                          <tr key={t.id} className="hover:bg-indigo-50/30 transition-colors">
-                           <td className="px-8 py-5 uppercase font-black text-indigo-950">{t.userName}</td>
+                           <td className="px-8 py-5 uppercase font-black">{t.userName}</td>
                            <td className="px-8 py-5 uppercase truncate max-w-[200px] text-indigo-900">{t.bookTitle}</td>
                            <td className="px-8 py-5 text-center">
                              <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${t.action === 'Pinjaman' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'}`}>
@@ -865,10 +832,10 @@ const App: React.FC = () => {
                   <thead className="bg-slate-50 text-[9px] uppercase font-black border-b text-slate-600">
                     <tr><th className="px-8 py-6">NAMA AHLI</th><th className="px-8 py-6">JUDUL BUKU</th><th className="px-8 py-6 text-center">NILAI</th><th className="px-8 py-6 text-right">STATUS</th></tr>
                   </thead>
-                  <tbody className="divide-y text-[10px] font-bold">
+                  <tbody className="divide-y text-[10px] font-bold text-indigo-950">
                     {transactions.filter(t => t.status === 'Rosak/Hilang').map(t => (
                       <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-8 py-5 uppercase font-black text-indigo-950">{t.userName}</td>
+                        <td className="px-8 py-5 uppercase font-black">{t.userName}</td>
                         <td className="px-8 py-5 uppercase truncate max-w-[200px] text-indigo-900">{t.bookTitle}</td>
                         <td className="px-8 py-5 text-center text-rose-700 font-black">RM {t.fineAmount?.toFixed(2)}</td>
                         <td className="px-8 py-5 text-right flex justify-end gap-2">
@@ -897,6 +864,45 @@ const App: React.FC = () => {
                 <div className="space-y-4">
                   <button onClick={handleSessionPromotion} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[11px] shadow-lg flex items-center justify-center gap-3 hover:bg-indigo-700"><ArrowUpCircle size={20}/> NAIK KELAS</button>
                   <button onClick={handleSessionReset} className="w-full py-5 bg-rose-50 text-rose-600 rounded-2xl font-black uppercase text-[11px] border border-rose-100 flex items-center justify-center gap-3 hover:bg-rose-600 hover:text-white transition-all"><RotateCcw size={20}/> RESET SEMUA AHLI</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="max-w-3xl mx-auto py-10 space-y-8">
+              <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-indigo-100">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                    <RefreshCw size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black uppercase italic text-indigo-950">Sinkronasi & Backup Data</h3>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Pindah data antara laptop dan telefon</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button onClick={handleBackupData} className="flex items-center justify-center gap-3 px-6 py-5 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-indigo-800 transition-all active:translate-y-1"><Download size={20} /> MUAT TURUN BACKUP</button>
+                  <label className="flex items-center justify-center gap-3 px-6 py-5 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-emerald-800 transition-all active:translate-y-1 cursor-pointer text-center"><Upload size={20} /> MUAT NAIK BACKUP<input type="file" className="hidden" accept=".json" onChange={handleRestoreData} /></label>
+                </div>
+              </div>
+
+              <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-slate-100">
+                <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Tetapan Pentadbir</h3>
+                <div className="space-y-6 font-bold">
+                  <div><label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">ID PENGGUNA</label><input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} /></div>
+                  <div><label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">KATA LALUAN</label><input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} /></div>
+                  <div><label className="text-[10px] uppercase text-slate-500 mb-2 block font-black">NAMA SEKOLAH</label><input type="text" className="w-full p-4 border-2 rounded-xl uppercase text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} /></div>
+                  <button onClick={() => { localStorage.setItem('spbt_settings', JSON.stringify(adminSettings)); alert("Simpan!"); }} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase shadow-xl font-black tracking-widest hover:bg-indigo-700">KEMASKINI TETAPAN</button>
+                </div>
+              </div>
+
+              <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-emerald-100">
+                <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Pengurusan Nama Kelas</h3>
+                <div className="space-y-6">
+                   <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2">{YEARS.map(y => (<button key={y} onClick={() => setClassConfigYear(y)} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${classConfigYear === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>TAHUN {y}</button>))}</div>
+                   <div className="flex gap-2"><input type="text" placeholder="CONTOH: AMANAH" className="flex-1 p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600" value={newClassName} onChange={e => setNewClassName(e.target.value)} /><button onClick={handleAddClass} className="px-6 py-4 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase shadow-lg">TAMBAH</button></div>
+                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{classesConfig[classConfigYear].map(c => (<div key={c} className="p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl flex items-center justify-between"><span className="text-[10px] font-black uppercase text-indigo-900">{c}</span><button onClick={() => handleRemoveClass(classConfigYear, c)} className="text-rose-400 hover:text-rose-600"><Trash2 size={14}/></button></div>))}</div>
                 </div>
               </div>
             </div>
@@ -1072,47 +1078,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* --- PAPARAN CETAK LOG REKOD --- */}
-      {isPrintHistoryOpen && (
-        <div className="fixed inset-0 bg-white z-[700] flex flex-col overflow-y-auto no-scrollbar print-area" style={{ fontFamily: 'Arial, sans-serif' }}>
-          <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white no-print">
-            <h3 className="text-sm font-black uppercase italic">Prapapar Log Rekod {MONTHS[historyMonth].toUpperCase()}</h3>
-            <div className="flex gap-4">
-               <button onClick={() => window.print()} className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg"><Printer size={14} className="inline mr-2"/> CETAK SEKARANG</button>
-               <button onClick={() => setIsPrintHistoryOpen(false)} className="p-2 text-white/50"><X size={24}/></button>
-            </div>
-          </div>
-          <div className="flex-1 w-full max-w-5xl mx-auto p-12 bg-white text-black print:p-0">
-             <div className="border-b-4 border-black pb-4 mb-10 text-center text-black">
-                <h2 className="text-lg font-bold uppercase text-black">{adminSettings.schoolName}</h2>
-                <h1 className="text-2xl font-black uppercase underline mt-2 text-black">LOG REKOD TRANSAKSI BUKU TEKS - {MONTHS[historyMonth].toUpperCase()} {new Date().getFullYear()}</h1>
-             </div>
-             <table className="w-full border-collapse border-2 border-black text-[10px] text-black">
-                <thead>
-                  <tr className="bg-slate-100">
-                    <th className="border-2 border-black p-3 text-center w-12 uppercase text-black">BIL</th>
-                    <th className="border-2 border-black p-3 text-left uppercase text-black">NAMA PENGGUNA</th>
-                    <th className="border-2 border-black p-3 text-left uppercase text-black">JUDUL BUKU</th>
-                    <th className="border-2 border-black p-3 text-center uppercase text-black">TINDAKAN</th>
-                    <th className="border-2 border-black p-3 text-right uppercase text-black">TARIKH & MASA</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map((t, idx) => (
-                    <tr key={t.id}>
-                      <td className="border-2 border-black p-3 text-center font-bold text-black">{idx + 1}</td>
-                      <td className="border-2 border-black p-3 font-black uppercase text-black">{t.userName}</td>
-                      <td className="border-2 border-black p-3 font-bold uppercase text-black">{t.bookTitle}</td>
-                      <td className="border-2 border-black p-3 text-center font-black uppercase italic text-black">{t.action}</td>
-                      <td className="border-2 border-black p-3 text-right font-medium text-black">{t.timestamp}</td>
-                    </tr>
-                  ))}
-                </tbody>
-             </table>
-          </div>
-        </div>
-      )}
-
       {/* --- MODAL BUTIRAN AHLI --- */}
       {isMemberDetailOpen && selectedMemberDetail && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-xl z-[200] flex items-center justify-center p-4 no-print">
@@ -1166,7 +1131,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200">
             <h3 className="text-xl font-black uppercase italic mb-8">{isAddingBook ? 'Daftar Buku' : 'Kemaskini Buku'}</h3>
-            <div className="space-y-6">
+            <div className="space-y-6 text-indigo-950 font-black">
               <div>
                 <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">KOD BUKU (BT/BA)</label>
                 <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[10px] bg-slate-50 outline-none focus:border-indigo-600" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
@@ -1208,7 +1173,7 @@ const App: React.FC = () => {
               </div>
               <div>
                 <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">NAMA PENUH</label>
-                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[10px] bg-slate-50 outline-none" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
+                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[10px] bg-slate-50 outline-none text-indigo-950" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
               </div>
               {newMember.type === 'Murid' && (
                 <div className="space-y-4">
@@ -1221,7 +1186,7 @@ const App: React.FC = () => {
                   {classesConfig[newMember.year || 1].length > 0 && (
                     <div>
                       <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">PILIH KELAS</label>
-                      <select className="w-full p-4 border-2 rounded-xl font-black text-[10px] bg-slate-50 outline-none uppercase" value={newMember.className} onChange={e => setNewMember({...newMember, className: e.target.value})}>
+                      <select className="w-full p-4 border-2 rounded-xl font-black text-[10px] bg-slate-50 outline-none uppercase text-indigo-950" value={newMember.className} onChange={e => setNewMember({...newMember, className: e.target.value})}>
                         <option value="">- PILIH KELAS -</option>
                         {classesConfig[newMember.year || 1].map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
@@ -1243,7 +1208,7 @@ const App: React.FC = () => {
             <div className="space-y-6">
               <div>
                 <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">NAMA PENUH</label>
-                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[10px] bg-slate-50 outline-none" value={memberToEdit.name} onChange={e => setMemberToEdit({...memberToEdit, name: e.target.value.toUpperCase()})} />
+                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[10px] bg-slate-50 outline-none text-indigo-950" value={memberToEdit.name} onChange={e => setMemberToEdit({...memberToEdit, name: e.target.value.toUpperCase()})} />
               </div>
               <button onClick={handleUpdateMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl transition-transform active:scale-95">SIMPAN PERUBAHAN</button>
               <button onClick={() => setIsEditingMember(false)} className="w-full py-3 text-slate-500 font-bold uppercase text-[9px]">BATAL</button>
