@@ -826,7 +826,7 @@ const App: React.FC = () => {
                           {t.resolutionStatus === 'Tertunggak' ? (
                             <div className="flex gap-2">
                               <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[8px] uppercase font-black shadow-sm transition-all hover:bg-emerald-700">TUNAI</button>
-                              <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[8px] uppercase font-black shadow-sm transition-all hover:bg-emerald-700">BUKU</button>
+                              <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[8px] uppercase font-black shadow-sm transition-all hover:bg-indigo-700">BUKU</button>
                             </div>
                           ) : (
                             <span className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-[8px] uppercase font-black border">LUNAS</span>
@@ -955,10 +955,12 @@ const App: React.FC = () => {
                             return acc + (curr.fineAmount || 0);
                           }, 0);
                           const isSettled = list.every(t => t.resolutionStatus === 'Selesai');
+                          const studentClass = members.find(m => m.name === studentName)?.className || clsName;
+
                           return (
-                            <div key={studentName} className="mb-8 border-2 border-black p-4 ml-2 text-black">
+                            <div key={studentName} className="mb-8 border-2 border-black p-4 ml-2 text-black break-inside-avoid">
                               <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-1">
-                                 <h4 className="text-xs font-black uppercase text-black">NAMA MURID: {studentName}</h4>
+                                 <h4 className="text-xs font-black uppercase text-black">NAMA MURID: {studentName} ({studentClass})</h4>
                                  <span className={`text-[10px] font-black uppercase ${isSettled ? 'text-green-600' : 'text-red-600'}`}>STATUS: {isSettled ? 'LUNAS' : 'TUNGGAKAN'}</span>
                               </div>
                               <table className="w-full border-collapse border-2 border-black text-[10px] text-black">

@@ -43,10 +43,16 @@
             position: relative;
         }
 
+        /* Kelas khas untuk mengelakkan pecahan rekod antara halaman */
+        .break-inside-avoid {
+            break-inside: avoid-page !important;
+            page-break-inside: avoid !important;
+        }
+
         @media print {
             /* 1. TETAPAN HALAMAN */
             @page {
-                margin: 5mm;
+                margin: 8mm;
             }
             .landscape-print { @page { size: landscape; } }
             .portrait-print { @page { size: portrait; } }
@@ -76,7 +82,7 @@
             .a4-paper-portrait, .a4-paper-landscape {
                 width: 100% !important;
                 margin: 0 !important;
-                padding: 5mm !important;
+                padding: 0 !important;
                 box-shadow: none !important;
                 display: block !important;
                 visibility: visible !important;
