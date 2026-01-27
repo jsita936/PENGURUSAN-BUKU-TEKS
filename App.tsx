@@ -17,7 +17,6 @@ import {
   Printer,
   Package,
   Plus,
-  Minus,
   Search,
   Wallet,
   Settings,
@@ -34,8 +33,7 @@ import {
   Loader2,
   Download,
   Upload,
-  Type as TypeIcon,
-  ArrowDownCircle
+  Type as TypeIcon
 } from 'lucide-react';
 
 const MONTHS = [
@@ -96,11 +94,7 @@ const App: React.FC = () => {
 
   const [isAddingBook, setIsAddingBook] = useState(false);
   const [isEditingBook, setIsEditingBook] = useState(false);
-  const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [bookToEdit, setBookToEdit] = useState<Book | null>(null);
-  const [stockTargetBook, setStockTargetBook] = useState<Book | null>(null);
-  const [stockAdjustmentQty, setStockAdjustmentQty] = useState<number>(0);
-
   const [newBook, setNewBook] = useState<Partial<Book>>({ title: '', code: '', year: 1, type: 'Buku Teks', stock: 0, price: 0 });
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [isEditingMember, setIsEditingMember] = useState(false);
@@ -212,21 +206,6 @@ const App: React.FC = () => {
     }, ...prev]);
   };
 
-  const handleStockUpdate = (bookId: string, qty: number, action: ActionType) => {
-    if (qty === 0) return;
-    setBooks(prev => prev.map(b => b.id === bookId ? { ...b, stock: b.stock + qty } : b));
-    const book = books.find(b => b.id === bookId);
-    if (book) {
-      setTransactions(prev => [{
-        id: Math.random().toString(36).substr(2, 9),
-        bookId, bookTitle: book.title, userName: 'SISTEM (STOK)', userType: 'Guru', quantity: Math.abs(qty),
-        timestamp: new Date().toLocaleString('ms-MY'), createdAt: Date.now(), action, status: 'Berjaya'
-      }, ...prev]);
-    }
-    setIsStockModalOpen(false);
-    setStockAdjustmentQty(0);
-  };
-
   const handleResolveDamage = (transactionId: string, method: ResolutionMethod) => {
     const trans = transactions.find(t => t.id === transactionId);
     if (!trans) return;
@@ -268,7 +247,7 @@ const App: React.FC = () => {
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regSchool || !regId || !regPass) return alert("Sila lengkapkan maklumat.");
+    if (!regSchool || !regId || !regPass) return alert("Lengkapkan maklumat.");
     setAdminSettings({ ...adminSettings, schoolName: regSchool.toUpperCase(), adminId: regId, adminPass: regPass, isRegistered: true });
   };
 
@@ -349,7 +328,6 @@ const App: React.FC = () => {
     };
     setMembers(prev => [...prev, member]);
     setIsAddingMember(false);
-    setNewMember({ name: '', type: 'Guru', year: 1, className: '' });
   };
 
   const handleUpdateMember = () => {
@@ -518,103 +496,6 @@ const App: React.FC = () => {
     event.target.value = '';
   };
 
-  // --- RENDERING VIEWS ---
-
-  // 1. FIRST TIME REGISTRATION SCREEN
-  if (!adminSettings.isRegistered) {
-    return (
-      <div className="min-h-screen bg-indigo-950 flex items-center justify-center p-6 font-bold">
-        <div className="w-full max-w-md bg-white p-10 rounded-[3rem] shadow-2xl border-b-[15px] border-indigo-600 animate-in fade-in zoom-in duration-300">
-          <div className="flex flex-col items-center mb-8 text-indigo-950">
-            <School size={64} className="text-indigo-600 mb-4" />
-            <h1 className="text-3xl font-black uppercase text-center italic">PENDAFTARAN</h1>
-            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-2 text-center">Daftar maklumat pentadbir sekolah baru</p>
-          </div>
-          <form onSubmit={handleRegister} className="space-y-5">
-            <div>
-              <label className="text-[11px] font-black uppercase text-indigo-900 mb-2 block ml-2">NAMA SEKOLAH</label>
-              <input 
-                type="text" 
-                placeholder="SK TAMAN INDAH" 
-                className="w-full p-5 border-2 border-slate-200 rounded-2xl uppercase font-black focus:border-indigo-600 outline-none text-indigo-950 bg-white shadow-sm" 
-                value={regSchool} 
-                onChange={e => setRegSchool(e.target.value)} 
-                required
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-black uppercase text-indigo-900 mb-2 block ml-2">ID PENGGUNA (ADMIN)</label>
-              <input 
-                type="text" 
-                placeholder="ID ADMIN" 
-                className="w-full p-5 border-2 border-slate-200 rounded-2xl font-black focus:border-indigo-600 outline-none text-indigo-950 bg-white shadow-sm" 
-                value={regId} 
-                onChange={e => setRegId(e.target.value)} 
-                required
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-black uppercase text-indigo-900 mb-2 block ml-2">KATA LALUAN</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                className="w-full p-5 border-2 border-slate-200 rounded-2xl font-black focus:border-indigo-600 outline-none text-indigo-950 bg-white shadow-sm" 
-                value={regPass} 
-                onChange={e => setRegPass(e.target.value)} 
-                required
-              />
-            </div>
-            <button className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase font-black shadow-lg hover:bg-indigo-700 transition-all active:scale-95 mt-4 tracking-widest">Daftar Sistem</button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // 2. LOGIN SCREEN
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6 font-bold">
-        <div className="w-full max-w-md bg-white p-10 rounded-[3rem] shadow-2xl border-b-[12px] border-indigo-950 animate-in fade-in zoom-in duration-300">
-          <div className="flex flex-col items-center mb-8 text-indigo-950">
-            <Lock size={64} className="text-indigo-600 mb-4" />
-            <h1 className="text-3xl font-black uppercase text-center italic">LOG MASUK</h1>
-            <p className="text-center text-[10px] text-slate-500 mt-2 uppercase font-black tracking-widest">{adminSettings.schoolName}</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="text-[11px] font-black uppercase text-indigo-900 mb-2 block ml-2">ID PENGGUNA</label>
-              <input 
-                type="text" 
-                placeholder="ID ADMIN" 
-                className="w-full p-5 border-2 border-slate-200 rounded-2xl font-black focus:border-indigo-600 outline-none text-indigo-950 bg-white shadow-sm" 
-                value={loginId} 
-                onChange={e => setLoginId(e.target.value)} 
-                required
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-black uppercase text-indigo-900 mb-2 block ml-2">KATA LALUAN</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                className="w-full p-5 border-2 border-slate-200 rounded-2xl font-black focus:border-indigo-600 outline-none text-indigo-950 bg-white shadow-sm" 
-                value={loginPass} 
-                onChange={e => setLoginPass(e.target.value)} 
-                required
-              />
-            </div>
-            <button className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase font-black shadow-lg hover:bg-indigo-700 transition-all active:scale-95 mt-4 tracking-widest">Masuk Ke Sistem</button>
-          </form>
-          <div className="mt-10 pt-6 border-t border-slate-100 text-center">
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">SISTEM PENGURUSAN BUKU TEKS ELEKTRONIK</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 3. MAIN APP
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#f1f5f9] text-indigo-950 font-black">
       <nav className="hidden md:flex w-72 bg-indigo-950 text-white flex-col shrink-0 no-print font-black">
@@ -674,46 +555,6 @@ const App: React.FC = () => {
             </div>
           )}
 
-          {activeTab === 'inventory' && (
-            <div className="space-y-6 font-black">
-              <div className="flex flex-col lg:flex-row justify-between gap-4 font-black">
-                <div className="bg-white p-1 rounded-2xl border flex gap-1 shadow-sm font-black">
-                  {['Buku Teks', 'Buku Aktiviti'].map(type => (
-                    <button key={type} onClick={() => setInventoryType(type as BookType)} className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${inventoryType === type ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}`}>{type}</button>
-                  ))}
-                </div>
-                <button onClick={() => { setIsAddingBook(true); setNewBook({ ...newBook, type: inventoryType, year: selectedYear }); }} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase flex items-center gap-2 shadow-lg hover:bg-indigo-700 transition-transform active:scale-95 font-black"><Plus size={18}/> TAMBAH BUKU</button>
-              </div>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 font-black">{YEARS.map(y => <button key={y} onClick={() => setSelectedYear(y)} className={`min-w-[80px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${selectedYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md font-black' : 'bg-white text-slate-500'}`}>TAHUN {y}</button>)}</div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-black">
-                {books.filter(b => b.year === selectedYear && b.type === inventoryType).map(book => (
-                  <div key={book.id} className="bg-white p-6 rounded-3xl border shadow-sm hover:border-indigo-400 transition-all group relative z-10 font-black">
-                    <div className="flex justify-between items-start mb-4">
-                      <span className="text-[10px] font-black text-emerald-600">RM {book.price.toFixed(2)}</span>
-                      <div className="flex gap-2 font-black">
-                        <button onClick={() => { setBookToEdit(book); setIsEditingBook(true); }} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"><Edit2 size={16}/></button>
-                        <button onClick={() => { if(confirm("Padam buku ini?")) setBooks(prev => prev.filter(b => b.id !== book.id))}} className="p-1.5 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all font-black"><Trash2 size={16}/></button>
-                      </div>
-                    </div>
-                    <h4 className="font-black text-[11px] uppercase mb-1 h-8 overflow-hidden text-indigo-950 font-black">{book.title}</h4>
-                    <p className="text-[9px] font-black text-indigo-600 bg-indigo-50 w-fit px-3 py-1 rounded-lg uppercase mb-4 font-black">{book.code}</p>
-                    <div className="bg-slate-50 p-4 rounded-2xl space-y-3 font-black">
-                      <div className="flex justify-between items-center font-black">
-                        <span className="text-[9px] font-black text-slate-500 uppercase font-black tracking-widest">STOK:</span>
-                        <span className={`text-2xl font-black ${book.stock < 20 ? 'text-rose-600' : 'text-indigo-950 font-black'}`}>{book.stock}</span>
-                      </div>
-                      <div className="flex gap-2 font-black border-t pt-3">
-                        <button onClick={() => { setStockTargetBook(book); setIsStockModalOpen(true); }} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase shadow-md flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all font-black">
-                           <RefreshCw size={14}/> KEMASKINI STOK
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {activeTab === 'import' && (
             <div className="max-w-4xl mx-auto space-y-8 pb-10 font-black">
               <div className="flex gap-4 p-2 bg-indigo-50 rounded-[2rem] w-fit mx-auto shadow-inner border border-indigo-100 font-black">
@@ -725,7 +566,7 @@ const App: React.FC = () => {
                 {isExtracting ? (
                   <div className="py-10 space-y-6 font-black">
                     <Loader2 size={64} className="text-indigo-600 animate-spin mx-auto" />
-                    <p className="text-sm font-black uppercase italic text-indigo-950 font-black">Sedang Memproses...</p>
+                    <p className="text-sm font-black uppercase italic text-indigo-950 font-black">Sedang Memproses Offline...</p>
                   </div>
                 ) : (
                   <div className="font-black">
@@ -735,9 +576,18 @@ const App: React.FC = () => {
                     {importMode === 'text' ? (
                       <div className="space-y-4 font-black">
                         <h3 className="text-2xl font-black uppercase italic text-indigo-950 font-black">Tampal Teks Pintar (Offline)</h3>
-                        <p className="text-[11px] text-slate-700 font-bold uppercase mt-2 font-black">Format: TAHUN [Tahun] [Nama Kelas], baris seterusnya nama-nama murid.</p>
+                        <div className="text-[11px] text-slate-700 font-bold uppercase space-y-1 font-black">
+                          <p className="font-black">Contoh format:</p>
+                          <div className="bg-indigo-50 p-4 rounded-2xl inline-block text-left normal-case border border-indigo-100 text-indigo-950 leading-relaxed font-black">
+                            <strong className="font-black">1 Amanah</strong><br/>
+                            Ahmad Ali<br/>
+                            Siti Sarah<br/>
+                            <strong className="font-black">2 Bestari</strong><br/>
+                            Ali bin Abu
+                          </div>
+                        </div>
                         <textarea 
-                          className="w-full h-64 p-6 border-2 rounded-3xl bg-white font-black text-xs outline-none focus:border-indigo-600 transition-all uppercase no-scrollbar text-indigo-950 font-black shadow-inner"
+                          className="w-full h-64 p-6 border-2 rounded-3xl bg-slate-50 font-black text-xs outline-none focus:border-indigo-600 transition-all uppercase no-scrollbar text-indigo-950 font-black"
                           placeholder="Tampal senarai nama di sini..."
                           value={manualText}
                           onChange={e => setManualText(e.target.value)}
@@ -747,7 +597,7 @@ const App: React.FC = () => {
                     ) : (
                       <div className="font-black">
                         <h3 className="text-2xl font-black uppercase italic text-indigo-950 font-black">Imbas Senarai (AI)</h3>
-                        <p className="text-[11px] text-slate-700 font-bold uppercase mt-2 font-black">Muat naik fail PDF atau Gambar untuk diproses oleh AI.</p>
+                        <p className="text-[11px] text-slate-700 font-bold uppercase mt-2 font-black">Muat naik fail PDF atau Gambar untuk diproses oleh AI (Memerlukan Internet).</p>
                         <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".pdf,image/*" />
                         <button onClick={() => fileInputRef.current?.click()} className="mt-6 px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl transition-all active:scale-95 flex items-center gap-3 mx-auto font-black">PILIH FAIL</button>
                       </div>
@@ -795,6 +645,36 @@ const App: React.FC = () => {
             </div>
           )}
 
+          {activeTab === 'inventory' && (
+            <div className="space-y-6 font-black">
+              <div className="flex flex-col lg:flex-row justify-between gap-4 font-black">
+                <div className="bg-white p-1 rounded-2xl border flex gap-1 shadow-sm font-black">
+                  {['Buku Teks', 'Buku Aktiviti'].map(type => (
+                    <button key={type} onClick={() => setInventoryType(type as BookType)} className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${inventoryType === type ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}`}>{type}</button>
+                  ))}
+                </div>
+                <button onClick={() => { setIsAddingBook(true); setNewBook({ ...newBook, type: inventoryType, year: selectedYear }); }} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase flex items-center gap-2 shadow-lg hover:bg-indigo-700 transition-transform active:scale-95 font-black"><Plus size={18}/> TAMBAH BUKU</button>
+              </div>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 font-black">{YEARS.map(y => <button key={y} onClick={() => setSelectedYear(y)} className={`min-w-[80px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${selectedYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md font-black' : 'bg-white text-slate-500'}`}>TAHUN {y}</button>)}</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-black">
+                {books.filter(b => b.year === selectedYear && b.type === inventoryType).map(book => (
+                  <div key={book.id} className="bg-white p-6 rounded-3xl border shadow-sm hover:border-indigo-400 transition-all group relative z-10 font-black">
+                    <div className="flex justify-between items-start mb-4">
+                      <span className="text-[10px] font-black text-emerald-600">RM {book.price.toFixed(2)}</span>
+                      <div className="flex gap-2 font-black">
+                        <button onClick={() => { setBookToEdit(book); setIsEditingBook(true); }} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"><Edit2 size={16}/></button>
+                        <button onClick={() => { if(confirm("Padam buku ini?")) setBooks(prev => prev.filter(b => b.id !== book.id))}} className="p-1.5 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all font-black"><Trash2 size={16}/></button>
+                      </div>
+                    </div>
+                    <h4 className="font-black text-[11px] uppercase mb-1 h-8 overflow-hidden text-indigo-950 font-black">{book.title}</h4>
+                    <p className="text-[9px] font-black text-indigo-600 bg-indigo-50 w-fit px-3 py-1 rounded-lg uppercase mb-4 font-black">{book.code}</p>
+                    <div className="bg-slate-50 p-3 rounded-xl flex justify-between items-center font-black"><span className="text-[8px] font-black text-slate-500 uppercase font-black">STOK:</span><span className={`text-xl font-black ${book.stock < 20 ? 'text-rose-600' : 'text-indigo-950 font-black'}`}>{book.stock}</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {activeTab === 'members' && (
             <div className="space-y-6 font-black">
               <div className="flex justify-between items-center font-black">
@@ -803,7 +683,7 @@ const App: React.FC = () => {
                     <button key={type} onClick={() => setMemberTypeView(type as UserType)} className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase transition-all ${memberTypeView === type ? 'bg-indigo-600 text-white shadow-md font-black' : 'text-slate-500 font-black'}`}>{type}</button>
                   ))}
                 </div>
-                <button onClick={() => setIsAddingMember(true)} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-transform active:scale-95 font-black flex items-center gap-2"><Plus size={18}/> TAMBAH AHLI</button>
+                <button onClick={() => setIsAddingMember(true)} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-transform active:scale-95 font-black"><Plus size={18}/></button>
               </div>
               {memberTypeView === 'Murid' && (
                 <div className="space-y-4 font-black">
@@ -851,19 +731,17 @@ const App: React.FC = () => {
                      <button key={m} onClick={() => setHistoryMonth(idx)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${historyMonth === idx ? 'bg-indigo-600 text-white font-black' : 'text-slate-500 hover:bg-slate-50 font-black'}`}>{m}</button>
                    ))}
                 </div>
-                <div className="flex gap-2 font-black">
-                  <button onClick={() => setIsPrintHistoryOpen(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase flex items-center gap-2 shadow-lg hover:bg-indigo-700 transition-all font-black"><Printer size={16}/> PRAPAPAR</button>
-                  <button onClick={handleResetHistory} className="px-6 py-3 bg-rose-50 text-rose-600 rounded-2xl font-black text-[10px] uppercase border border-rose-100 flex items-center gap-2 hover:bg-rose-600 hover:text-white transition-all font-black"><RefreshCw size={16}/> RESET</button>
-                </div>
+                <button onClick={handleResetHistory} className="px-6 py-3 bg-rose-50 text-rose-600 rounded-2xl font-black text-[10px] uppercase border border-rose-100 flex items-center gap-2 hover:bg-rose-600 hover:text-white transition-all font-black"><RefreshCw size={16}/> RESET</button>
               </div>
               <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl font-black">
-                 <div className="p-8 border-b bg-slate-50 font-black">
+                 <div className="p-8 border-b bg-slate-50 flex justify-between items-center font-black">
                     <h3 className="text-xl font-black text-indigo-900 uppercase italic font-black">LOG {MONTHS[historyMonth].toUpperCase()}</h3>
+                    <button onClick={() => setIsPrintHistoryOpen(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase flex items-center gap-2 shadow-lg transition-transform active:scale-95 hover:bg-indigo-700 font-black"><Printer size={18}/> PRAPAPAR & CETAK</button>
                  </div>
                  <div className="overflow-x-auto font-black">
                    <table className="w-full text-left font-black">
                      <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-600 border-b font-black">
-                       <tr><th className="px-8 py-6 font-black">PEMINJAM</th><th className="px-8 py-6 font-black">JUDUL BUKU</th><th className="px-8 py-6 text-center font-black">TINDAKAN</th><th className="px-8 py-6 text-right font-black">TARIKH</th></tr>
+                       <tr><th className="px-8 py-6 font-black">PENGGUNA (IDENTITI)</th><th className="px-8 py-6 font-black">JUDUL BUKU</th><th className="px-8 py-6 text-center font-black">TINDAKAN</th><th className="px-8 py-6 text-right font-black">TARIKH</th></tr>
                      </thead>
                      <tbody className="divide-y text-[10px] font-bold text-slate-900 font-black">
                        {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map(t => (
@@ -960,9 +838,9 @@ const App: React.FC = () => {
               <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-slate-100 font-black">
                 <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950 font-black">Tetapan Pentadbir</h3>
                 <div className="space-y-6 font-black">
-                  <div><label className="text-[10px] uppercase text-slate-500 mb-2 block ml-1 font-black">ID PENGGUNA</label><input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-white focus:border-indigo-600 outline-none font-black" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} /></div>
-                  <div><label className="text-[10px] uppercase text-slate-500 mb-2 block ml-1 font-black">KATA LALUAN</label><input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-white focus:border-indigo-600 outline-none font-black" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} /></div>
-                  <div><label className="text-[10px] uppercase text-slate-500 mb-2 block ml-1 font-black">NAMA SEKOLAH</label><input type="text" className="w-full p-4 border-2 rounded-xl uppercase text-indigo-950 bg-white focus:border-indigo-600 outline-none font-black" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} /></div>
+                  <div><label className="text-[10px] uppercase text-slate-500 mb-2 block ml-1 font-black">ID PENGGUNA</label><input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} /></div>
+                  <div><label className="text-[10px] uppercase text-slate-500 mb-2 block ml-1 font-black">KATA LALUAN</label><input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} /></div>
+                  <div><label className="text-[10px] uppercase text-slate-500 mb-2 block ml-1 font-black">NAMA SEKOLAH</label><input type="text" className="w-full p-4 border-2 rounded-xl uppercase text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} /></div>
                   <button onClick={() => { localStorage.setItem('spbt_settings', JSON.stringify(adminSettings)); alert("Simpan!"); }} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase shadow-xl font-black tracking-widest hover:bg-indigo-700 font-black">KEMASKINI TETAPAN</button>
                 </div>
               </div>
@@ -976,7 +854,7 @@ const App: React.FC = () => {
                      ))}
                    </div>
                    <div className="flex gap-2 font-black">
-                     <input type="text" placeholder="CONTOH: AMANAH" className="flex-1 p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-white outline-none focus:border-indigo-600 font-black" value={newClassName} onChange={e => setNewClassName(e.target.value)} />
+                     <input type="text" placeholder="CONTOH: AMANAH" className="flex-1 p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600 font-black" value={newClassName} onChange={e => setNewClassName(e.target.value)} />
                      <button onClick={handleAddClass} className="px-6 py-4 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase shadow-lg font-black">TAMBAH</button>
                    </div>
                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 font-black">
@@ -994,7 +872,350 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* MODALS */}
+      {/* --- PRAPAPAR LAPORAN KOS GANTI (PORTRAIT) --- */}
+      {isPrintDamageReportOpen && (
+        <div className="fixed inset-0 bg-slate-500/50 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto print-container portrait-print no-scrollbar font-black">
+          <div className="p-4 border-b flex justify-between items-center bg-rose-700 text-white sticky top-0 z-50 no-print shadow-xl font-black">
+            <h3 className="text-sm font-black uppercase italic font-black">Prapapar Laporan Kos Ganti (Portrait)</h3>
+            <div className="flex gap-4 font-black">
+               <button onClick={() => window.print()} className="px-6 py-2 bg-white text-rose-700 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-slate-100 transition-all font-black"><Printer size={14} className="inline mr-2"/> CETAK</button>
+               <button onClick={() => setIsPrintDamageReportOpen(false)} className="p-2 text-white/50 hover:text-white transition-all font-black"><X size={24}/></button>
+            </div>
+          </div>
+          <div className="a4-paper-portrait text-black font-black">
+             <div className="border-b-4 border-black pb-4 mb-10 text-center font-black">
+                <h2 className="text-lg font-bold uppercase text-black font-black">{adminSettings.schoolName}</h2>
+                <h1 className="text-2xl font-black uppercase underline mt-2 text-black font-black">REKOD KEROSAKAN & KOS GANTI BUKU TEKS</h1>
+             </div>
+
+             {/* SENARAI MURID IKUT TAHUN */}
+             {YEARS.map((y, yIdx) => {
+               const yearTrans = transactions.filter(t => {
+                 const m = members.find(member => member.name === t.userName);
+                 return t.status === 'Rosak/Hilang' && m?.year === y && m?.type === 'Murid';
+               });
+               if (yearTrans.length === 0) return null;
+
+               const classGroups: Record<string, Record<string, Transaction[]>> = {};
+               yearTrans.forEach(t => {
+                 const m = members.find(member => member.name === t.userName);
+                 const className = m?.className || 'TIADA KELAS';
+                 if (!classGroups[className]) classGroups[className] = {};
+                 if (!classGroups[className][t.userName]) classGroups[className][t.userName] = [];
+                 classGroups[className][t.userName].push(t);
+               });
+
+               const sortedClassNames = [...(classesConfig[y] || []), 'TIADA KELAS'].filter(name => classGroups[name]);
+
+               return (
+                 <div key={y} className={`mb-12 font-black ${yIdx > 0 ? 'page-break-before' : ''}`}>
+                   <h3 className="text-xl font-black uppercase border-b-4 border-black mb-6 bg-slate-100 p-3 text-black font-black">TAHUN {y}</h3>
+                   {sortedClassNames.map(clsName => (
+                     <div key={clsName} className="mb-10 ml-4 font-black">
+                        <h4 className="text-lg font-black uppercase mb-4 text-black border-l-8 border-black pl-3 bg-slate-50 font-black">KELAS: {clsName}</h4>
+                        {Object.entries(classGroups[clsName]).map(([studentName, list]) => {
+                          const total = list.reduce((acc, curr) => {
+                            if (curr.resolutionStatus === 'Selesai' && curr.resolutionMethod === 'Buku') return acc;
+                            return acc + (curr.fineAmount || 0);
+                          }, 0);
+                          const isSettled = list.every(t => t.resolutionStatus === 'Selesai');
+                          const info = getMemberInfoText(studentName);
+
+                          return (
+                            <div key={studentName} className="mb-8 border-2 border-black p-4 ml-2 text-black break-inside-avoid font-black">
+                              <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-1 font-black">
+                                 <h4 className="text-xs font-black uppercase text-black font-black">NAMA PEMINJAM: {info}</h4>
+                                 <span className={`text-[10px] font-black uppercase ${isSettled ? 'text-green-600' : 'text-red-600'}`}>STATUS: {isSettled ? 'LUNAS' : 'TUNGGAKAN'}</span>
+                              </div>
+                              <table className="w-full border-collapse border-2 border-black text-[10px] text-black font-black">
+                                <thead>
+                                  <tr className="bg-slate-50 font-black">
+                                    <th className="border-2 border-black p-2 w-8 uppercase text-black font-black">BIL</th>
+                                    <th className="border-2 border-black p-2 text-left uppercase text-black font-black">JUDUL BUKU</th>
+                                    <th className="border-2 border-black p-2 w-24 text-center uppercase text-black font-black">HARGA (RM)</th>
+                                    <th className="border-2 border-black p-2 w-36 text-center uppercase text-black font-black">CATATAN</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {list.map((t, idx) => {
+                                    const showPrice = t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Buku' ? 0 : (t.fineAmount || 0);
+                                    return (
+                                     <tr key={t.id} className="font-black">
+                                       <td className="border-2 border-black p-2 text-center font-bold text-black font-black">{idx + 1}</td>
+                                       <td className="border-2 border-black p-2 uppercase font-bold text-black font-black">{t.bookTitle}</td>
+                                       <td className="border-2 border-black p-2 text-center font-black text-black font-black">
+                                         {showPrice === 0 ? '0.00' : showPrice.toFixed(2)}
+                                       </td>
+                                       <td className={`border-2 border-black p-2 text-center uppercase font-black text-[9px] font-black ${t.resolutionStatus === 'Selesai' ? 'text-green-700 font-black' : 'text-red-700 font-black'}`}>
+                                         {t.resolutionStatus === 'Selesai' ? `LUNAS (${t.resolutionMethod})` : 'TERTUNGGAK'}
+                                       </td>
+                                     </tr>
+                                    );
+                                  })}
+                                  <tr className="bg-slate-50 font-black">
+                                    <td colSpan={2} className="border-2 border-black p-3 text-right uppercase text-black font-black">JUMLAH KOS GANTI:</td>
+                                    <td className="border-2 border-black p-3 text-center bg-white text-black underline font-black font-black">RM {total.toFixed(2)}</td>
+                                    <td className="border-2 border-black p-3 font-black"></td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          );
+                        })}
+                     </div>
+                   ))}
+                 </div>
+               );
+             })}
+
+             {/* SENARAI GURU DI BAWAH SEKALI */}
+             {(() => {
+                const teacherTrans = transactions.filter(t => {
+                    const m = members.find(member => member.name === t.userName);
+                    return t.status === 'Rosak/Hilang' && m?.type === 'Guru';
+                });
+                if (teacherTrans.length === 0) return null;
+
+                const teacherGroups: Record<string, Transaction[]> = {};
+                teacherTrans.forEach(t => {
+                    if (!teacherGroups[t.userName]) teacherGroups[t.userName] = [];
+                    teacherGroups[t.userName].push(t);
+                });
+
+                return (
+                    <div className="mt-16 font-black page-break-before">
+                        <h3 className="text-xl font-black uppercase border-b-4 border-black mb-6 bg-slate-200 p-3 text-black font-black">BAHAGIAN GURU</h3>
+                        {Object.entries(teacherGroups).map(([teacherName, list]) => {
+                            const total = list.reduce((acc, curr) => {
+                                if (curr.resolutionStatus === 'Selesai' && curr.resolutionMethod === 'Buku') return acc;
+                                return acc + (curr.fineAmount || 0);
+                            }, 0);
+                            const isSettled = list.every(t => t.resolutionStatus === 'Selesai');
+
+                            return (
+                                <div key={teacherName} className="mb-8 border-2 border-black p-4 ml-2 text-black break-inside-avoid font-black">
+                                    <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-1 font-black">
+                                        <h4 className="text-xs font-black uppercase text-black font-black">NAMA PEMINJAM: {getMemberInfoText(teacherName)}</h4>
+                                        <span className={`text-[10px] font-black uppercase ${isSettled ? 'text-green-600' : 'text-red-600'}`}>STATUS: {isSettled ? 'LUNAS' : 'TUNGGAKAN'}</span>
+                                    </div>
+                                    <table className="w-full border-collapse border-2 border-black text-[10px] text-black font-black">
+                                        <thead>
+                                            <tr className="bg-slate-50 font-black">
+                                                <th className="border-2 border-black p-2 w-8 uppercase text-black font-black">BIL</th>
+                                                <th className="border-2 border-black p-2 text-left uppercase text-black font-black">JUDUL BUKU</th>
+                                                <th className="border-2 border-black p-2 w-24 text-center uppercase text-black font-black">HARGA (RM)</th>
+                                                <th className="border-2 border-black p-2 w-36 text-center uppercase text-black font-black">CATATAN</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {list.map((t, idx) => {
+                                                const showPrice = t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Buku' ? 0 : (t.fineAmount || 0);
+                                                return (
+                                                    <tr key={t.id} className="font-black">
+                                                        <td className="border-2 border-black p-2 text-center font-bold text-black font-black">{idx + 1}</td>
+                                                        <td className="border-2 border-black p-2 uppercase font-bold text-black font-black">{t.bookTitle}</td>
+                                                        <td className="border-2 border-black p-2 text-center font-black text-black font-black">{showPrice.toFixed(2)}</td>
+                                                        <td className={`border-2 border-black p-2 text-center uppercase font-black text-[9px] font-black ${t.resolutionStatus === 'Selesai' ? 'text-green-700 font-black' : 'text-red-700 font-black'}`}>{t.resolutionStatus === 'Selesai' ? `LUNAS (${t.resolutionMethod})` : 'TERTUNGGAK'}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            <tr className="bg-slate-50 font-black">
+                                                <td colSpan={2} className="border-2 border-black p-3 text-right uppercase text-black font-black">JUMLAH KOS GANTI:</td>
+                                                <td className="border-2 border-black p-3 text-center bg-white text-black underline font-black font-black">RM {total.toFixed(2)}</td>
+                                                <td className="border-2 border-black p-3 font-black"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+             })()}
+          </div>
+        </div>
+      )}
+
+      {/* --- PRAPAPAR BORANG MURID (LANDSCAPE) --- */}
+      {isPrintFormOpen && selectedMemberDetail && (
+        <div className="fixed inset-0 bg-slate-500/50 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto print-container landscape-print no-scrollbar font-black">
+          <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white sticky top-0 z-50 no-print font-black shadow-xl">
+            <h3 className="text-sm font-black uppercase italic font-black">Prapapar Borang Murid (Melintang)</h3>
+            <div className="flex gap-4 font-black">
+               <button onClick={() => window.print()} className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg transition-transform active:scale-95 hover:bg-emerald-700 font-black"><Printer size={14} className="inline mr-2"/> CETAK</button>
+               <button onClick={() => setIsPrintFormOpen(false)} className="p-2 text-white/50 hover:text-white transition-all font-black"><X size={24}/></button>
+            </div>
+          </div>
+          <div className="a4-paper-landscape text-black font-black">
+             <div className="border-b-2 border-black pb-4 mb-6 text-center text-black font-black">
+                <h2 className="text-lg font-bold uppercase text-black leading-tight font-black">{adminSettings.schoolName}</h2>
+                <h1 className="text-2xl font-black uppercase underline text-black font-black">REKOD PINJAMAN & PEMULANGAN BUKU TEKS (SPBT)</h1>
+                <h3 className="text-md font-bold mt-1 uppercase text-black font-black">TAHUN {selectedMemberDetail.year} {selectedMemberDetail.className} | SESI {new Date().getFullYear()}</h3>
+             </div>
+             
+             <div className="mb-4 text-[10px] font-bold uppercase text-black flex justify-between font-black">
+                <div className="flex gap-2 items-center flex-1 font-black">NAMA MURID: <span className="border-b-2 border-black flex-1 font-black px-2 font-black">{selectedMemberDetail.name}</span></div>
+                <div className="w-12"></div>
+                <div className="flex gap-2 items-center w-64 font-black">TARIKH: <span className="border-b-2 border-black flex-1 font-black px-2 text-right font-black">{new Date().toLocaleDateString('ms-MY')}</span></div>
+             </div>
+
+             <table className="w-full border-collapse border-2 border-black text-[9px] text-black table-fixed font-black">
+                <colgroup>
+                    <col style={{width: '35px'}} />
+                    <col style={{width: '90px'}} />
+                    <col style={{width: 'auto'}} />
+                    <col style={{width: '60px'}} />
+                    <col style={{width: '180px'}} />
+                    <col style={{width: '100px'}} />
+                    <col style={{width: '100px'}} />
+                    <col style={{width: '110px'}} />
+                </colgroup>
+                <thead>
+                  <tr className="bg-slate-50 font-black">
+                    <th className="border-2 border-black p-2 uppercase text-center font-black">BIL</th>
+                    <th className="border-2 border-black p-2 uppercase text-center font-black">KOD</th>
+                    <th className="border-2 border-black p-2 text-left uppercase pl-2 font-black">JUDUL BUKU (1 BARIS)</th>
+                    <th className="border-2 border-black p-2 uppercase text-center font-black">RM</th>
+                    <th className="border-2 border-black p-2 uppercase text-center font-black">NO SIRI/PEROLEHAN</th>
+                    <th className="border-2 border-black p-2 uppercase text-center font-black">T.TERIMA</th>
+                    <th className="border-2 border-black p-2 uppercase text-center font-black">T.PULANG</th>
+                    <th className="border-2 border-black p-2 uppercase text-center font-black">CATATAN/STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="bg-slate-100 font-black"><td colSpan={8} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase text-[11px] bg-slate-200">BAHAGIAN 1: BUKU TEKS (WAJIB DIPULANGKAN)</td></tr>
+                  {books.filter(b => b.year === selectedMemberDetail.year && b.type === 'Buku Teks').map((b, idx) => {
+                    const data = editableFormData[b.id] || { serial: '', receivedDate: '', returnDate: '', status: '' };
+                    const isDamaged = data.status.toUpperCase().includes('ROSAK') || data.status.toUpperCase().includes('HILANG');
+                    return (
+                      <tr key={b.id} className="h-8 font-black">
+                        <td className="border-2 border-black p-1 text-center font-bold text-black font-black">{idx + 1}</td>
+                        <td className="border-2 border-black p-1 text-center font-black text-black font-black">{b.code}</td>
+                        <td className="border-2 border-black p-1 font-bold uppercase pl-2 text-black font-black">
+                           <div className="truncate whitespace-nowrap overflow-hidden" style={{maxWidth: '350px'}}>{b.title}</div>
+                        </td>
+                        <td className="border-2 border-black p-1 text-center font-bold text-black font-black">{b.price.toFixed(2)}</td>
+                        <td className="border-2 border-black p-0"><input type="text" value={data.serial} onChange={e => handleUpdateFormData(b.id, 'serial', e.target.value.toUpperCase())} className="w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase text-black" /></td>
+                        <td className="border-2 border-black p-0"><input type="text" value={data.receivedDate} onChange={e => handleUpdateFormData(b.id, 'receivedDate', e.target.value)} className="w-full h-full text-center text-[10px] outline-none bg-transparent text-black" /></td>
+                        <td className="border-2 border-black p-0"><input type="text" value={data.returnDate} onChange={e => handleUpdateFormData(b.id, 'returnDate', e.target.value)} className="w-full h-full text-center text-[10px] outline-none bg-transparent text-black" /></td>
+                        <td className="border-2 border-black p-0"><input type="text" value={data.status} onChange={e => handleUpdateFormData(b.id, 'status', e.target.value.toUpperCase())} className="w-full h-full text-center font-black text-[8px] outline-none bg-transparent uppercase" style={{ color: isDamaged ? '#ef4444' : '#000' }} placeholder="BAIK/ROSAK/HILANG" /></td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="bg-slate-100 font-black"><td colSpan={8} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase text-[11px] bg-slate-200">BAHAGIAN 2: BUKU AKTIVITI (TIDAK PERLU PULANG)</td></tr>
+                  {books.filter(b => b.year === selectedMemberDetail.year && b.type === 'Buku Aktiviti').map((b, idx) => {
+                    const data = editableFormData[b.id] || { serial: '', receivedDate: '', returnDate: '', status: '' };
+                    return (
+                      <tr key={b.id} className="h-8 font-black">
+                        <td className="border-2 border-black p-1 text-center font-bold text-black font-black">{idx + 1}</td>
+                        <td className="border-2 border-black p-1 text-center font-black text-black font-black">{b.code}</td>
+                        <td className="border-2 border-black p-1 font-bold uppercase pl-2 text-black font-black">
+                           <div className="truncate whitespace-nowrap overflow-hidden" style={{maxWidth: '350px'}}>{b.title}</div>
+                        </td>
+                        <td className="border-2 border-black p-1 text-center font-bold text-black font-black">{b.price.toFixed(2)}</td>
+                        <td className="border-2 border-black p-0"><input type="text" value={data.serial} onChange={e => handleUpdateFormData(b.id, 'serial', e.target.value.toUpperCase())} className="w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase text-black" /></td>
+                        <td className="border-2 border-black p-0"><input type="text" value={data.receivedDate} onChange={e => handleUpdateFormData(b.id, 'receivedDate', e.target.value)} className="w-full h-full text-center text-[10px] outline-none bg-transparent text-black" /></td>
+                        <td colSpan={2} className="border-2 border-black p-1 text-center italic text-[9px] font-black uppercase bg-slate-50 text-black font-black">MILIK PERIBADI MURID</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+             </table>
+
+             <div className="mt-8 grid grid-cols-2 gap-10 text-black font-black">
+                <div className="border-2 border-black p-4 rounded-lg bg-slate-50 font-black">
+                    <p className="text-[10px] font-black uppercase mb-1 font-black">AKUAN PENERIMAAN:</p>
+                    <p className="text-[8px] leading-tight mb-8 font-black">Saya telah menerima buku-buku tersebut dalam keadaan baik dan berjanji akan menjaganya dengan baik.</p>
+                    <div className="flex justify-between items-end font-black">
+                        <div className="text-center w-40 font-black">
+                            <div className="border-b-2 border-black w-full mb-1"></div>
+                            <p className="text-[8px] font-bold text-black font-black">( IBU BAPA / PENJAGA )</p>
+                        </div>
+                        <div className="text-right italic text-[8px] text-black font-black">Tarikh: ...........................</div>
+                    </div>
+                </div>
+                <div className="border-2 border-black p-4 rounded-lg bg-slate-50 font-black">
+                    <p className="text-[10px] font-black uppercase mb-1 font-black">PENGESAHAN PENYELARAS:</p>
+                    <p className="text-[8px] leading-tight mb-8 font-black">Urusan direkodkan secara elektronik dalam E-SPBT PINTAR.</p>
+                    <div className="flex justify-between items-end font-black">
+                        <div className="text-center w-40 font-black">
+                            <div className="border-b-2 border-black w-full mb-1"></div>
+                            <p className="text-[8px] font-bold text-black font-black">( COP & TANDATANGAN )</p>
+                        </div>
+                        <div className="text-right italic text-[8px] text-black font-black">Unit SPBT {adminSettings.schoolName}</div>
+                    </div>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- PRAPAPAR LOG REKOD BULANAN (PORTRAIT) --- */}
+      {isPrintHistoryOpen && (
+        <div className="fixed inset-0 bg-slate-500/50 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto print-container portrait-print no-scrollbar font-black">
+          <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white sticky top-0 z-[100] no-print shadow-xl font-black">
+            <div className="flex items-center gap-3 font-black">
+               <History size={20} className="text-indigo-400" />
+               <h3 className="text-sm font-black uppercase italic font-black">Prapapar Log Rekod (Portrait)</h3>
+            </div>
+            <div className="flex gap-4 font-black">
+               <button onClick={() => window.print()} className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-black text-[11px] uppercase shadow-lg transition-all hover:bg-emerald-700 font-black"><Printer size={16}/> CETAK SEKARANG</button>
+               <button onClick={() => setIsPrintHistoryOpen(false)} className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all"><X size={20}/></button>
+            </div>
+          </div>
+          
+          <div className="a4-paper-portrait text-black font-black">
+             <div className="border-b-4 border-black pb-8 mb-10 text-center font-black">
+                <p className="text-md font-bold uppercase mb-1 font-black">{adminSettings.schoolName}</p>
+                <h1 className="text-2xl font-black uppercase underline font-black">LOG TRANSAKSI BUKU TEKS ELEKTRONIK</h1>
+                <p className="text-sm font-black mt-3 uppercase italic font-black">BAGI BULAN: {MONTHS[historyMonth].toUpperCase()} {new Date().getFullYear()}</p>
+             </div>
+
+             <div className="mb-6 flex justify-between items-end text-[10px] font-bold uppercase text-black font-black font-black">
+                <div className="font-black">
+                   <p className="font-black">Dijana oleh: {adminSettings.adminName}</p>
+                   <p className="font-black">Tarikh: {new Date().toLocaleDateString('ms-MY')}</p>
+                </div>
+                <div className="text-right font-black">
+                   <p className="font-black">Jumlah: {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).length} Rekod</p>
+                </div>
+             </div>
+
+             <table className="w-full border-collapse border-2 border-black text-[11px] text-black font-black">
+                <thead>
+                  <tr className="bg-slate-100 font-black">
+                    <th className="border-2 border-black p-3 text-center w-12 uppercase font-black">BIL</th>
+                    <th className="border-2 border-black p-3 text-left uppercase font-black">AHLI / GURU (IDENTITI LENGKAP)</th>
+                    <th className="border-2 border-black p-3 text-left uppercase font-black">JUDUL BUKU</th>
+                    <th className="border-2 border-black p-3 text-center w-24 uppercase font-black">TINDAKAN</th>
+                    <th className="border-2 border-black p-3 text-right w-32 uppercase font-black">TARIKH & MASA</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).length > 0 ? (
+                    transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map((t, idx) => (
+                      <tr key={t.id} className="text-black font-black">
+                        <td className="border-2 border-black p-3 text-center font-bold text-black font-black">{idx + 1}</td>
+                        <td className="border-2 border-black p-3 font-black uppercase text-black font-black">{getMemberInfoText(t.userName)}</td>
+                        <td className="border-2 border-black p-3 font-bold uppercase text-black font-black">
+                           <div className="truncate whitespace-nowrap overflow-hidden" style={{maxWidth: '220px'}}>{t.bookTitle}</div>
+                        </td>
+                        <td className="border-2 border-black p-3 text-center font-black uppercase italic text-black font-black">{t.action}</td>
+                        <td className="border-2 border-black p-3 text-right font-medium text-black font-black">{t.timestamp}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr className="font-black">
+                      <td colSpan={5} className="border-2 border-black p-10 text-center font-bold italic uppercase opacity-50 text-black font-black">Tiada rekod transaksi dijumpai.</td>
+                    </tr>
+                  )}
+                </tbody>
+             </table>
+          </div>
+        </div>
+      )}
+
+      {/* MODALS DAN LAIN-LAIN (TIDAK BERUBAH) */}
       {isMemberDetailOpen && selectedMemberDetail && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-xl z-[200] flex items-center justify-center p-4 no-print font-black">
           <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border-b-[15px] border-indigo-600 font-black">
@@ -1042,62 +1263,32 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {isStockModalOpen && stockTargetBook && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4 font-bold">
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200">
-             <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-black uppercase italic">KEMASKINI STOK</h3>
-                <button onClick={() => setIsStockModalOpen(false)} className="p-2 text-slate-400 hover:text-rose-500 transition-all"><X size={24}/></button>
-             </div>
-             <div className="bg-indigo-50 p-4 rounded-2xl mb-8 border border-indigo-100">
-                <p className="text-[10px] font-black uppercase text-indigo-400 mb-1">BUKU:</p>
-                <p className="text-[12px] font-black uppercase text-indigo-950 leading-tight">{stockTargetBook.title}</p>
-                <p className="text-[10px] font-bold text-indigo-600 mt-1">STOK SEDIA ADA: {stockTargetBook.stock}</p>
-             </div>
-             <div className="space-y-6">
-                <div>
-                   <label className="text-[11px] font-black uppercase text-indigo-900 mb-2 block ml-2">BILANGAN UNIT (+/-)</label>
-                   <div className="flex items-center gap-4">
-                      <button onClick={() => setStockAdjustmentQty(prev => prev - 1)} className="w-14 h-14 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center shadow-sm hover:bg-rose-200 transition-all"><Minus/></button>
-                      <input type="number" className="flex-1 h-14 border-2 border-slate-200 rounded-2xl text-center text-xl font-black text-indigo-950 outline-none focus:border-indigo-600 bg-white" value={stockAdjustmentQty} onChange={(e) => setStockAdjustmentQty(Number(e.target.value))} />
-                      <button onClick={() => setStockAdjustmentQty(prev => prev + 1)} className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center shadow-sm hover:bg-emerald-200 transition-all"><Plus/></button>
-                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-4">
-                   <button onClick={() => handleStockUpdate(stockTargetBook.id, stockAdjustmentQty, 'Terima Stok')} className="py-5 bg-emerald-600 text-white rounded-2xl font-black text-[11px] uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-emerald-700 transition-all active:scale-95"><ArrowDownCircle size={18}/> TERIMA STOK</button>
-                   <button onClick={() => handleStockUpdate(stockTargetBook.id, stockAdjustmentQty, 'Pelarasan Manual')} className="py-5 bg-indigo-600 text-white rounded-2xl font-black text-[11px] uppercase shadow-lg flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all active:scale-95"><RefreshCw size={18}/> PELARASAN</button>
-                </div>
-             </div>
-          </div>
-        </div>
-      )}
-
       {(isAddingBook || isEditingBook) && (
-        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4 no-print font-bold">
+        <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4 no-print font-black">
           <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200 font-black">
             <h3 className="text-xl font-black uppercase italic mb-8 font-black">Data Inventori Buku</h3>
             <div className="space-y-6 text-indigo-950 font-black">
               <div className="font-black">
                 <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">KOD BUKU (BT/BA)</label>
-                <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-white outline-none focus:border-indigo-600 text-indigo-950 font-black" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
+                <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600 text-indigo-950 font-black" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
               </div>
               <div className="font-black">
                 <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">JUDUL BUKU PENUH</label>
-                <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-white outline-none focus:border-indigo-600 text-indigo-950 font-black" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
+                <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600 text-indigo-950 font-black" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
               </div>
               <div className="grid grid-cols-2 gap-4 font-black">
                 <div className="font-black">
                   <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">TAHUN</label>
-                  <select className="w-full p-4 border-2 rounded-xl font-black text-[11px] bg-white outline-none text-indigo-950 font-black" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y} className="font-black">TAHUN {y}</option>)}</select>
+                  <select className="w-full p-4 border-2 rounded-xl font-black text-[11px] bg-slate-50 outline-none text-indigo-950 font-black" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y} className="font-black">TAHUN {y}</option>)}</select>
                 </div>
                 <div className="font-black">
                   <label className="text-[9px] font-black uppercase text-emerald-700 mb-1 block ml-1 font-black">HARGA (RM)</label>
-                  <input type="number" step="0.01" className="w-full p-4 border-2 border-emerald-200 rounded-xl font-black text-[11px] bg-white text-indigo-950 outline-none font-black" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
+                  <input type="number" step="0.01" className="w-full p-4 border-2 border-emerald-200 rounded-xl font-black text-[11px] bg-emerald-50 text-indigo-950 outline-none font-black" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
                 </div>
               </div>
               <div className="font-black">
                 <label className="text-[9px] font-black uppercase text-blue-700 mb-1 block ml-1 font-black">JUMLAH STOK (UNIT)</label>
-                <input type="number" className="w-full p-4 border-2 border-blue-200 rounded-xl font-black text-[11px] bg-white text-indigo-950 outline-none focus:border-blue-600 font-black" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
+                <input type="number" className="w-full p-4 border-2 border-blue-200 rounded-xl font-black text-[11px] bg-blue-50 text-indigo-950 outline-none focus:border-blue-600 font-black" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
               </div>
               <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase font-black shadow-xl tracking-widest transition-transform active:scale-95 font-black">SIMPAN DATA BUKU</button>
               <button onClick={() => { setIsAddingBook(false); setIsEditingBook(false); }} className="w-full py-2 text-slate-500 uppercase text-[9px] font-black">BATAL</button>
@@ -1118,166 +1309,73 @@ const App: React.FC = () => {
               </div>
               <div className="font-black">
                 <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">NAMA PENUH</label>
-                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[11px] bg-white outline-none text-indigo-950 font-black shadow-sm" placeholder="AHLI BARU" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
+                <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[11px] bg-slate-50 outline-none text-indigo-950 font-black" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
               </div>
               {newMember.type === 'Murid' && (
                 <div className="space-y-4 font-black">
                   <div className="font-black">
                     <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">TAHUN</label>
                     <div className="flex gap-2 font-black">
-                      {YEARS.map(y => <button key={y} type="button" onClick={() => setNewMember({...newMember, year: y, className: ''})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[11px] font-black ${newMember.year === y ? 'bg-indigo-600 text-white font-black' : 'bg-white text-slate-600 font-black'}`}>{y}</button>)}
+                      {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y, className: ''})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[11px] font-black ${newMember.year === y ? 'bg-indigo-600 text-white font-black' : 'bg-slate-50 text-slate-600 font-black'}`}>{y}</button>)}
                     </div>
                   </div>
-                  <div className="font-black">
-                    <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">PILIH KELAS</label>
-                    <select className="w-full p-4 border-2 rounded-xl font-black text-[11px] bg-white outline-none uppercase text-indigo-950 font-black" value={newMember.className} onChange={e => setNewMember({...newMember, className: e.target.value})}>
-                      <option value="" className="font-black">- PILIH KELAS -</option>
-                      {classesConfig[newMember.year || 1].map(c => <option key={c} value={c} className="font-black">{c}</option>)}
-                      <option value="TIADA" className="font-black">TIADA KELAS</option>
-                    </select>
-                  </div>
+                  {classesConfig[newMember.year || 1].length > 0 && (
+                    <div className="font-black">
+                      <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">PILIH KELAS</label>
+                      <select className="w-full p-4 border-2 rounded-xl font-black text-[11px] bg-slate-50 outline-none uppercase text-indigo-950 font-black" value={newMember.className} onChange={e => setNewMember({...newMember, className: e.target.value})}>
+                        <option value="" className="font-black">- PILIH KELAS -</option>
+                        {classesConfig[newMember.year || 1].map(c => <option key={c} value={c} className="font-black">{c}</option>)}
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
-              <button onClick={handleAddMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl transition-transform active:scale-95 font-black tracking-widest mt-4">DAFTAR AHLI SEKARANG</button>
+              <button onClick={handleAddMember} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase shadow-xl transition-transform active:scale-95 font-black">DAFTAR AHLI SEKARANG</button>
               <button onClick={() => setIsAddingMember(false)} className="w-full py-3 text-slate-500 uppercase text-[9px] font-black">BATAL</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* PRAPAPAR CETAKAN */}
-      {isPrintFormOpen && selectedMemberDetail && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto no-scrollbar print-container landscape-print font-black">
-          <div className="p-4 border-b flex justify-between items-center bg-indigo-700 text-white sticky top-0 z-50 no-print font-black">
-            <h3 className="text-sm font-black uppercase font-black">Prapapar Borang Pinjaman</h3>
-            <div className="flex gap-2 font-black">
-              <button onClick={() => window.print()} className="px-6 py-2 bg-white text-indigo-700 rounded-xl font-black text-[10px] uppercase shadow-lg font-black">CETAK</button>
-              <button onClick={() => setIsPrintFormOpen(false)} className="p-2 text-white/50 hover:text-white font-black"><X size={24}/></button>
+      {isBorrowModalOpen && selectedMemberDetail && (
+        <div className="fixed inset-0 bg-indigo-950/95 backdrop-blur-xl z-[300] flex items-center justify-center p-4 no-print font-black">
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl flex flex-col border-b-[15px] border-indigo-600 text-indigo-950 animate-in zoom-in duration-300 font-black">
+            <div className="p-8 border-b flex justify-between items-center font-black">
+              <div className="font-black">
+                 <h3 className="text-xl font-black uppercase italic font-black">Pilihan Buku Pinjaman</h3>
+                 <p className="text-[10px] font-black text-indigo-600 mt-1 uppercase italic font-black">{selectedMemberDetail.name}</p>
+              </div>
+              <button onClick={() => {setIsBorrowModalOpen(false); setSelectedBooksToBorrow(new Set());}} className="text-slate-300 hover:text-rose-500 transition-all font-black"><X size={28}/></button>
             </div>
-          </div>
-          <div className="a4-paper-landscape text-black font-black">
-            <div className="text-center mb-8 border-b-4 border-black pb-4 font-black">
-              <h2 className="text-lg font-bold uppercase font-black text-indigo-950">{adminSettings.schoolName}</h2>
-              <h1 className="text-xl font-black uppercase underline mt-1 font-black text-indigo-900">REKOD PINJAMAN & PEMULANGAN (INDIVIDU)</h1>
+            <div className="px-8 pt-6 font-black">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 font-black">
+                {YEARS.map(y => <button key={y} onClick={() => setBorrowFilterYear(y)} className={`min-w-[70px] py-2.5 rounded-lg font-black text-[10px] border-2 uppercase transition-all font-black ${borrowFilterYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md font-black' : 'bg-slate-50 text-slate-600 font-black'}`}>TAHUN {y}</button>)}
+              </div>
             </div>
-            <div className="mb-6 grid grid-cols-2 gap-4 text-[11px] font-bold uppercase font-black text-slate-900">
-              <p>NAMA: <span className="text-indigo-950">{selectedMemberDetail.name}</span></p>
-              <p className="text-right">TAHUN: <span className="text-indigo-950">{selectedMemberDetail.year} {selectedMemberDetail.className}</span></p>
+            <div className="p-8 pt-4 overflow-y-auto max-h-[45vh] grid grid-cols-1 md:grid-cols-2 gap-3 no-scrollbar text-indigo-950 font-black">
+              {books.filter(b => b.year === borrowFilterYear).map(book => {
+                const isSelected = selectedBooksToBorrow.has(book.id);
+                const isAlreadyBorrowed = getActiveLoans(selectedMemberDetail.name).some(l => l.bookId === book.id);
+                return (
+                  <div key={book.id} onClick={isAlreadyBorrowed ? undefined : () => { const s = new Set(selectedBooksToBorrow); s.has(book.id) ? s.delete(book.id) : s.add(book.id); setSelectedBooksToBorrow(s); }} className={`p-4 rounded-xl border-2 transition-all flex justify-between items-center font-black ${isAlreadyBorrowed ? 'bg-slate-100 opacity-60 font-black' : isSelected ? 'bg-indigo-600 text-white shadow-md font-black' : 'bg-white hover:border-indigo-300 cursor-pointer font-black'}`}>
+                    <div className="overflow-hidden flex-1 text-indigo-950 font-black"><h4 className={`font-black text-[10px] uppercase truncate font-black ${isSelected ? 'text-white font-black' : 'text-indigo-950 font-black'}`}>{book.title}</h4><p className={`text-[8px] uppercase mt-1 font-black ${isSelected ? 'text-white/70 font-black' : 'text-slate-600 font-black'}`}>{book.code} • {isAlreadyBorrowed ? 'SUDAH PINJAM' : `STOK: ${book.stock}`}</p></div>
+                    {isSelected && <CheckCircle size={16} className="text-white font-black"/>}{isAlreadyBorrowed && <Lock size={14} className="font-black"/>}
+                  </div>
+                );
+              })}
             </div>
-            <table className="w-full border-collapse border-2 border-black text-[10px] font-black">
-              <thead className="bg-slate-100 font-black">
-                <tr>
-                  <th className="border-2 border-black p-2 w-8 font-black text-indigo-950">BIL</th>
-                  <th className="border-2 border-black p-2 text-left font-black text-indigo-950">JUDUL BUKU</th>
-                  <th className="border-2 border-black p-2 w-20 font-black text-indigo-950">KOD</th>
-                  <th className="border-2 border-black p-2 w-24 font-black text-indigo-950">TERIMA</th>
-                  <th className="border-2 border-black p-2 w-24 font-black text-indigo-950">PULANG</th>
-                  <th className="border-2 border-black p-2 font-black text-indigo-950">STATUS</th>
-                </tr>
-              </thead>
-              <tbody className="text-slate-900">
-                {books.filter(b => b.year === selectedMemberDetail.year).map((b, i) => {
-                  const data = editableFormData[b.id] || { receivedDate: '', returnDate: '', status: '' };
-                  return (
-                    <tr key={b.id} className="font-black">
-                      <td className="border-2 border-black p-2 text-center font-black">{i + 1}</td>
-                      <td className="border-2 border-black p-2 uppercase font-black">{b.title}</td>
-                      <td className="border-2 border-black p-2 text-center font-black">{b.code}</td>
-                      <td className="border-2 border-black p-2 text-center font-black">{data.receivedDate}</td>
-                      <td className="border-2 border-black p-2 text-center font-black">{data.returnDate}</td>
-                      <td className={`border-2 border-black p-2 uppercase font-black text-center ${data.status === 'ROSAK/HILANG' ? 'text-rose-600' : (data.status === 'BAIK' ? 'text-emerald-600' : '')}`}>
-                        {data.status}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div className="p-8 border-t flex items-center justify-between bg-slate-50 font-black">
+              <span className="text-[11px] font-black uppercase italic text-indigo-950 tracking-widest font-black">{selectedBooksToBorrow.size} UNIT DIPILIH</span>
+              <button onClick={() => { 
+                Array.from(selectedBooksToBorrow).forEach((id: any) => handleAction(id, 'Pinjaman', selectedMemberDetail.name, selectedMemberDetail.type)); 
+                setIsBorrowModalOpen(false); 
+                setSelectedBooksToBorrow(new Set()); 
+              }} className="px-8 py-4 bg-indigo-600 text-white font-black rounded-xl text-[10px] uppercase shadow-xl transition-transform active:scale-95 font-black" disabled={selectedBooksToBorrow.size === 0}>SAHKAN PINJAMAN</button>
+            </div>
           </div>
         </div>
       )}
 
-      {isPrintHistoryOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto no-scrollbar print-container portrait-print font-black">
-          <div className="p-4 border-b flex justify-between items-center bg-indigo-700 text-white sticky top-0 z-50 no-print font-black">
-            <h3 className="text-sm font-black uppercase font-black">Laporan Log Transaksi</h3>
-            <div className="flex gap-2 font-black">
-              <button onClick={() => window.print()} className="px-6 py-2 bg-white text-indigo-700 rounded-xl font-black text-[10px] uppercase shadow-lg font-black">CETAK</button>
-              <button onClick={() => setIsPrintHistoryOpen(false)} className="p-2 text-white/50 hover:text-white font-black"><X size={24}/></button>
-            </div>
-          </div>
-          <div className="a4-paper-portrait text-black font-black">
-            <div className="text-center mb-8 border-b-4 border-black pb-4 font-black">
-              <h2 className="text-lg font-bold uppercase font-black text-indigo-950">{adminSettings.schoolName}</h2>
-              <h1 className="text-xl font-black uppercase underline mt-1 font-black text-indigo-900">LOG TRANSAKSI BULAN {MONTHS[historyMonth].toUpperCase()}</h1>
-            </div>
-            <table className="w-full border-collapse border-2 border-black text-[10px] font-black">
-              <thead>
-                <tr className="bg-slate-100 font-black text-indigo-950">
-                  <th className="border-2 border-black p-2 font-black w-8">BIL</th>
-                  <th className="border-2 border-black p-2 text-left font-black">NAMA PENGGUNA</th>
-                  <th className="border-2 border-black p-2 text-left font-black">JUDUL BUKU</th>
-                  <th className="border-2 border-black p-2 font-black w-24">TINDAKAN</th>
-                  <th className="border-2 border-black p-2 font-black w-32">TARIKH</th>
-                </tr>
-              </thead>
-              <tbody className="text-slate-900">
-                {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map((t, idx) => (
-                  <tr key={t.id} className="font-black">
-                    <td className="border-2 border-black p-2 text-center font-black">{idx + 1}</td>
-                    <td className="border-2 border-black p-2 uppercase font-black">{getMemberInfoText(t.userName)}</td>
-                    <td className="border-2 border-black p-2 uppercase font-black">{t.bookTitle}</td>
-                    <td className={`border-2 border-black p-2 text-center font-black uppercase italic ${t.action === 'Pinjaman' ? 'text-indigo-700' : 'text-emerald-700'}`}>
-                      {t.action}
-                    </td>
-                    <td className="border-2 border-black p-2 text-right font-black">{t.timestamp}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {isPrintDamageReportOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto no-scrollbar print-container portrait-print font-black">
-          <div className="p-4 border-b flex justify-between items-center bg-rose-700 text-white sticky top-0 z-50 no-print font-black">
-            <h3 className="text-sm font-black uppercase font-black">Laporan Kerosakan</h3>
-            <div className="flex gap-2 font-black">
-              <button onClick={() => window.print()} className="px-6 py-2 bg-white text-rose-700 rounded-xl font-black text-[10px] uppercase shadow-lg font-black">CETAK</button>
-              <button onClick={() => setIsPrintDamageReportOpen(false)} className="p-2 text-white/50 hover:text-white font-black"><X size={24}/></button>
-            </div>
-          </div>
-          <div className="a4-paper-portrait text-black font-black">
-            <div className="text-center mb-8 border-b-4 border-black pb-4 font-black">
-              <h2 className="text-lg font-bold uppercase font-black text-indigo-950">{adminSettings.schoolName}</h2>
-              <h1 className="text-xl font-black uppercase underline mt-1 font-black text-rose-700">REKOD KEROSAKAN & KOS GANTI</h1>
-            </div>
-            <table className="w-full border-collapse border-2 border-black text-[10px] font-black">
-              <thead>
-                <tr className="bg-slate-100 font-black text-rose-950">
-                  <th className="border-2 border-black p-2 font-black text-left">NAMA PEMINJAM</th>
-                  <th className="border-2 border-black p-2 font-black text-left">JUDUL BUKU</th>
-                  <th className="border-2 border-black p-2 font-black w-24">NILAI (RM)</th>
-                  <th className="border-2 border-black p-2 font-black">STATUS</th>
-                </tr>
-              </thead>
-              <tbody className="text-slate-900">
-                {transactions.filter(t => t.status === 'Rosak/Hilang').map(t => (
-                  <tr key={t.id} className="font-black">
-                    <td className="border-2 border-black p-2 uppercase font-black">{getMemberInfoText(t.userName)}</td>
-                    <td className="border-2 border-black p-2 uppercase font-black">{t.bookTitle}</td>
-                    <td className="border-2 border-black p-2 text-center font-black text-rose-700">{t.fineAmount?.toFixed(2)}</td>
-                    <td className={`border-2 border-black p-2 text-center font-black uppercase italic ${t.resolutionStatus === 'Tertunggak' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                      {t.resolutionStatus === 'Selesai' ? `LUNAS (${t.resolutionMethod})` : 'TERTUNGGAK'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
