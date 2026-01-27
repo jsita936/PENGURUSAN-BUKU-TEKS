@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Book, Transaction, UserType, TransactionStatus, ActionType, BookType, Member, AdminSettings, ResolutionMethod, ResolutionStatus } from './types';
 import { INITIAL_BOOKS, YEARS, CATEGORIES } from './constants';
-import { getStockInsight, extractMembersFromFile } from './services/geminiService';
+import { getStockInsight, extractMembersFromFile, extractMembersFromText } from './services/geminiService';
 import { 
   Library, 
   History, 
@@ -32,7 +32,8 @@ import {
   UploadCloud,
   Loader2,
   Download,
-  Upload
+  Upload,
+  Type as TypeIcon
 } from 'lucide-react';
 
 const MONTHS = [
@@ -83,6 +84,8 @@ const App: React.FC = () => {
   const [regPass, setRegPass] = useState('');
 
   const [activeTab, setActiveTab] = useState<'overview' | 'inventory' | 'members' | 'damages' | 'history' | 'session' | 'settings' | 'import'>('overview');
+  const [importMode, setImportMode] = useState<'file' | 'text'>('file');
+  const [manualText, setManualText] = useState('');
   const [inventoryType, setInventoryType] = useState<BookType>('Buku Teks');
   const [selectedYear, setSelectedYear] = useState<number>(1);
   const [memberTypeView, setMemberTypeView] = useState<UserType>('Guru');
@@ -367,6 +370,20 @@ const App: React.FC = () => {
     }
   };
 
+  const handleTextImport = async () => {
+    if (!manualText.trim()) return alert("Sila masukkan senarai nama murid.");
+    setIsExtracting(true);
+    try {
+      const result = await extractMembersFromText(manualText);
+      setExtractedMembers(result);
+      setManualText('');
+    } catch (err) {
+      alert("Gagal memproses teks.");
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
   const handleConfirmImport = () => {
     const newMembersList: Member[] = extractedMembers.map(m => ({
       id: Math.random().toString(36).substr(2, 9),
@@ -376,7 +393,6 @@ const App: React.FC = () => {
       className: (m.className || '').toUpperCase()
     }));
 
-    // Auto-create classes if they don't exist
     const newClassesConfig = { ...classesConfig };
     newMembersList.forEach(m => {
       if (m.year && m.className && !newClassesConfig[m.year].includes(m.className)) {
@@ -391,7 +407,6 @@ const App: React.FC = () => {
     setActiveTab('members');
   };
 
-  // --- FUNGSI BACKUP & RESTORE ---
   const handleBackupData = () => {
     const backupObj = {
       books,
@@ -497,7 +512,7 @@ const App: React.FC = () => {
             { id: 'overview', icon: LayoutDashboard, label: 'RUMUSAN' },
             { id: 'inventory', icon: Package, label: 'INVENTORI' },
             { id: 'members', icon: UserCircle, label: 'URUS AHLI' },
-            { id: 'import', icon: FileUp, label: 'IMBAS DATA' },
+            { id: 'import', icon: Sparkles, label: 'IMBAS DATA' },
             { id: 'damages', icon: AlertTriangle, label: 'KOS GANTI' },
             { id: 'history', icon: History, label: 'LOG REKOD' },
             { id: 'session', icon: TrendingUp, label: 'URUS SESI' },
@@ -546,32 +561,75 @@ const App: React.FC = () => {
 
           {activeTab === 'import' && (
             <div className="max-w-4xl mx-auto space-y-8 pb-10">
+              <div className="flex gap-4 p-2 bg-indigo-50 rounded-[2rem] w-fit mx-auto shadow-inner border border-indigo-100">
+                <button onClick={() => setImportMode('file')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase transition-all flex items-center gap-3 ${importMode === 'file' ? 'bg-indigo-600 text-white shadow-lg' : 'text-indigo-400'}`}><FileUp size={18}/> FAIL / GAMBAR</button>
+                <button onClick={() => setImportMode('text')} className={`px-10 py-4 rounded-2xl text-[10px] font-black uppercase transition-all flex items-center gap-3 ${importMode === 'text' ? 'bg-indigo-600 text-white shadow-lg' : 'text-indigo-400'}`}><TypeIcon size={18}/> TAMPAL TEKS</button>
+              </div>
+
               <div className="bg-white p-12 rounded-[3rem] shadow-xl border-4 border-dashed border-indigo-600 text-center space-y-6">
-                <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                   {isExtracting ? <Loader2 size={48} className="text-indigo-600 animate-spin" /> : <UploadCloud size={48} className="text-indigo-600" />}
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black uppercase italic text-indigo-950">Imbas Senarai Murid Pukal</h3>
-                  <p className="text-[11px] text-slate-700 font-bold uppercase mt-2">Muat naik fail PDF, Gambar Jadual Kelas, atau Teks senarai nama murid.</p>
-                </div>
-                <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".pdf,image/*,.txt" />
-                <button 
-                  onClick={() => fileInputRef.current?.click()} 
-                  disabled={isExtracting}
-                  className="px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl transition-all active:scale-95 flex items-center gap-3 mx-auto"
-                >
-                  {isExtracting ? 'SEDANG MENGEKSTRAK...' : 'PILIH FAIL SENARAI NAMA'}
-                </button>
+                {isExtracting ? (
+                  <div className="py-10 space-y-6">
+                    <Loader2 size={64} className="text-indigo-600 animate-spin mx-auto" />
+                    <p className="text-sm font-black uppercase italic text-indigo-950">AI Sedang Menyusun Data...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                       {importMode === 'file' ? <UploadCloud size={48} className="text-indigo-600" /> : <TypeIcon size={48} className="text-indigo-600" />}
+                    </div>
+                    {importMode === 'file' ? (
+                      <div>
+                        <h3 className="text-2xl font-black uppercase italic text-indigo-950">Imbas Senarai Murid Pukal</h3>
+                        <p className="text-[11px] text-slate-700 font-bold uppercase mt-2">Muat naik fail PDF, Gambar Jadual Kelas, atau Teks senarai nama murid.</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <h3 className="text-2xl font-black uppercase italic text-indigo-950">Tampal Teks Manual</h3>
+                        <p className="text-[11px] text-slate-700 font-bold uppercase mt-2">Salin senarai nama dari WhatsApp atau Word dan tampal di bawah.</p>
+                      </div>
+                    )}
+                    
+                    {importMode === 'file' ? (
+                      <>
+                        <input type="file" ref={fileInputRef} onChange={handleFileImport} className="hidden" accept=".pdf,image/*" />
+                        <button 
+                          onClick={() => fileInputRef.current?.click()} 
+                          className="px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl transition-all active:scale-95 flex items-center gap-3 mx-auto"
+                        >
+                          PILIH FAIL SENARAI NAMA
+                        </button>
+                      </>
+                    ) : (
+                      <div className="space-y-4">
+                        <textarea 
+                          className="w-full h-48 p-6 border-2 rounded-3xl bg-slate-50 font-bold text-xs outline-none focus:border-indigo-600 transition-all uppercase no-scrollbar"
+                          placeholder="Contoh:&#10;1. AHMAD BIN ALI - 1 AMANAH&#10;2. SITI AISYAH - 1 AMANAH"
+                          value={manualText}
+                          onChange={e => setManualText(e.target.value)}
+                        />
+                        <button 
+                          onClick={handleTextImport}
+                          className="px-10 py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-xs shadow-xl transition-all active:scale-95 flex items-center gap-3 mx-auto"
+                        >
+                          PROSES TEKS SENARAI
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               {extractedMembers.length > 0 && (
                 <div className="bg-white rounded-[3rem] shadow-2xl border-2 border-indigo-100 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="p-10 border-b bg-indigo-50 flex justify-between items-center">
+                  <div className="p-10 border-b bg-indigo-50 flex justify-between items-center gap-4 flex-col sm:flex-row">
                     <div>
                       <h3 className="text-2xl font-black uppercase italic text-indigo-950">Semakan Prapapar</h3>
                       <p className="text-[11px] text-indigo-700 font-black uppercase">Sila sahkan ketepatan data sebelum pendaftaran rasmi</p>
                     </div>
-                    <button onClick={handleConfirmImport} className="px-10 py-5 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-emerald-700 transition-all">SAHKAN & DAFTAR ({extractedMembers.length} MURID)</button>
+                    <div className="flex gap-2">
+                      <button onClick={() => setExtractedMembers([])} className="px-6 py-4 bg-white border-2 border-rose-100 text-rose-500 rounded-xl font-black text-xs uppercase">BATAL</button>
+                      <button onClick={handleConfirmImport} className="px-10 py-5 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase shadow-xl hover:bg-emerald-700 transition-all">SAHKAN & DAFTAR ({extractedMembers.length} MURID)</button>
+                    </div>
                   </div>
                   <div className="overflow-x-auto max-h-[600px] no-scrollbar">
                     <table className="w-full text-left">
@@ -597,7 +655,6 @@ const App: React.FC = () => {
 
           {activeTab === 'settings' && (
             <div className="max-w-3xl mx-auto py-10 space-y-8">
-              {/* --- BAHAGIAN BACKUP & RESTORE --- */}
               <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-indigo-100">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
