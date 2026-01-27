@@ -22,72 +22,96 @@
             -ms-overflow-style: none;
             scrollbar-width: none;
         }
+
+        /* TEMA PRAPAPAR - MEMBERI FEELING KERTAS A4 SEBELUM CETAK */
+        .a4-paper {
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 15mm;
+            margin: 20px auto;
+            box-shadow: 0 0 20px rgba(0,0,0,0.15);
+            position: relative;
+            box-sizing: border-box;
+            color: black;
+        }
+
         @media print {
-            /* PENTING: Paksa parent container supaya tidak memotong kandungan */
-            html, body, #root, main, .overflow-y-auto, .overflow-hidden, .flex-1 {
-                overflow: visible !important;
+            /* RESET UNTUK CETAKAN SISTEM */
+            @page {
+                size: A4;
+                margin: 10mm;
+            }
+            
+            html, body {
+                margin: 0 !important;
+                padding: 0 !important;
                 height: auto !important;
-                position: static !important;
+                background: white !important;
+                overflow: visible !important;
+            }
+
+            /* SEMBUNYIKAN SEMUA ELEMEN UI */
+            #root > div:not(.print-container), 
+            nav, 
+            header, 
+            aside,
+            .no-print,
+            button.no-print {
+                display: none !important;
+            }
+
+            /* TUNJUKKAN HANYA CONTAINER CETAKAN */
+            .print-container {
                 display: block !important;
-            }
-
-            body * {
-                visibility: hidden;
-            }
-
-            .print-area, .print-area * {
-                visibility: visible;
-                /* Gunakan Arial untuk borang cetak seperti diminta */
-                font-family: Arial, Helvetica, sans-serif !important;
-            }
-
-            .print-area {
-                position: absolute !important;
-                left: 0;
-                top: 0;
+                visibility: visible !important;
+                position: relative !important;
                 width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                display: block !important;
-                visibility: visible !important;
-                box-shadow: none !important;
-                border: none !important;
-                background-color: white !important;
+                overflow: visible !important;
             }
 
-            table {
+            .a4-paper {
                 width: 100% !important;
-                border-collapse: collapse !important;
-                background-color: white !important;
+                min-height: initial !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-shadow: none !important;
+                visibility: visible !important;
+                display: block !important;
+                overflow: visible !important;
+            }
+
+            /* KAWALAN PAGE BREAK UNTUK SENARAI PANJANG */
+            table {
                 page-break-inside: auto;
+                width: 100% !important;
             }
-
             thead {
-                display: table-header-group;
+                display: table-header-group; /* Ulang header pada setiap page baru */
             }
-
             tr {
                 page-break-inside: avoid;
                 page-break-after: auto;
             }
-
-            input {
-                border: none !important;
-                background: transparent !important;
-                outline: none !important;
-                box-shadow: none !important;
-                appearance: none !important;
-                color: inherit !important;
+            
+            /* Pastikan teks hitam pekat untuk cetakan */
+            .a4-paper, .a4-paper * {
+                color: #000 !important;
+                border-color: #000 !important;
+                visibility: visible !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
             }
-
-            .no-print {
-                display: none !important;
-            }
-
-            @page {
-                margin: 1.5cm;
+            
+            /* Matikan modal styling masa print */
+            .fixed.inset-0 {
+                position: absolute !important;
+                display: block !important;
+                background: white !important;
+                backdrop-filter: none !important;
+                overflow: visible !important;
             }
         }
     </style>
