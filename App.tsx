@@ -227,6 +227,14 @@ const App: React.FC = () => {
     return active;
   };
 
+  // FUNGSI UNTUK DAPATKAN INFO IDENTITI LENGKAP
+  const getMemberInfoText = (name: string) => {
+    const m = members.find(member => member.name === name);
+    if (!m) return name;
+    if (m.type === 'Guru') return `${m.name} (GURU)`;
+    return `${m.name} (MURID - T${m.year} ${m.className || ''})`;
+  };
+
   const getTotalInventoryForYear = (year: number | undefined) => {
     if (!year) return 0;
     return books.filter(b => b.year === year).length;
@@ -689,22 +697,22 @@ const App: React.FC = () => {
                     <button key={type} onClick={() => setInventoryType(type as BookType)} className={`px-5 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all ${inventoryType === type ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}`}>{type}</button>
                   ))}
                 </div>
-                <button onClick={() => { setIsAddingBook(true); setNewBook({ ...newBook, type: inventoryType, year: selectedYear }); }} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase flex items-center gap-2 shadow-lg hover:bg-indigo-700 transition-transform active:scale-95"><Plus size={18}/> TAMBAH BUKU</button>
+                <button onClick={() => { setIsAddingBook(true); setNewBook({ ...newBook, type: inventoryType, year: selectedYear }); }} className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase flex items-center gap-2 shadow-lg hover:bg-indigo-700 transition-transform active:scale-95 font-black"><Plus size={18}/> TAMBAH BUKU</button>
               </div>
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 font-black">{YEARS.map(y => <button key={y} onClick={() => setSelectedYear(y)} className={`min-w-[80px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${selectedYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-500'}`}>TAHUN {y}</button>)}</div>
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 font-black">{YEARS.map(y => <button key={y} onClick={() => setSelectedYear(y)} className={`min-w-[80px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${selectedYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md font-black' : 'bg-white text-slate-500'}`}>TAHUN {y}</button>)}</div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 font-black">
                 {books.filter(b => b.year === selectedYear && b.type === inventoryType).map(book => (
-                  <div key={book.id} className="bg-white p-6 rounded-3xl border shadow-sm hover:border-indigo-400 transition-all group relative z-10">
+                  <div key={book.id} className="bg-white p-6 rounded-3xl border shadow-sm hover:border-indigo-400 transition-all group relative z-10 font-black">
                     <div className="flex justify-between items-start mb-4">
                       <span className="text-[10px] font-black text-emerald-600">RM {book.price.toFixed(2)}</span>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 font-black">
                         <button onClick={() => { setBookToEdit(book); setIsEditingBook(true); }} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"><Edit2 size={16}/></button>
-                        <button onClick={() => { if(confirm("Padam buku ini?")) setBooks(prev => prev.filter(b => b.id !== book.id))}} className="p-1.5 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"><Trash2 size={16}/></button>
+                        <button onClick={() => { if(confirm("Padam buku ini?")) setBooks(prev => prev.filter(b => b.id !== book.id))}} className="p-1.5 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all font-black"><Trash2 size={16}/></button>
                       </div>
                     </div>
-                    <h4 className="font-black text-[11px] uppercase mb-1 h-8 overflow-hidden text-indigo-950">{book.title}</h4>
-                    <p className="text-[9px] font-black text-indigo-600 bg-indigo-50 w-fit px-3 py-1 rounded-lg uppercase mb-4">{book.code}</p>
-                    <div className="bg-slate-50 p-3 rounded-xl flex justify-between items-center"><span className="text-[8px] font-black text-slate-500 uppercase">STOK:</span><span className={`text-xl font-black ${book.stock < 20 ? 'text-rose-600' : 'text-indigo-950'}`}>{book.stock}</span></div>
+                    <h4 className="font-black text-[11px] uppercase mb-1 h-8 overflow-hidden text-indigo-950 font-black">{book.title}</h4>
+                    <p className="text-[9px] font-black text-indigo-600 bg-indigo-50 w-fit px-3 py-1 rounded-lg uppercase mb-4 font-black">{book.code}</p>
+                    <div className="bg-slate-50 p-3 rounded-xl flex justify-between items-center font-black"><span className="text-[8px] font-black text-slate-500 uppercase font-black">STOK:</span><span className={`text-xl font-black ${book.stock < 20 ? 'text-rose-600' : 'text-indigo-950 font-black'}`}>{book.stock}</span></div>
                   </div>
                 ))}
               </div>
@@ -716,25 +724,25 @@ const App: React.FC = () => {
               <div className="flex justify-between items-center font-black">
                 <div className="bg-white p-1 rounded-2xl border flex gap-1 shadow-sm font-black">
                   {['Guru', 'Murid'].map(type => (
-                    <button key={type} onClick={() => setMemberTypeView(type as UserType)} className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase transition-all ${memberTypeView === type ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}`}>{type}</button>
+                    <button key={type} onClick={() => setMemberTypeView(type as UserType)} className={`px-6 py-3 rounded-xl font-black text-[10px] uppercase transition-all ${memberTypeView === type ? 'bg-indigo-600 text-white shadow-md font-black' : 'text-slate-500 font-black'}`}>{type}</button>
                   ))}
                 </div>
-                <button onClick={() => setIsAddingMember(true)} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-transform active:scale-95"><Plus size={18}/></button>
+                <button onClick={() => setIsAddingMember(true)} className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg transition-transform active:scale-95 font-black"><Plus size={18}/></button>
               </div>
               {memberTypeView === 'Murid' && (
                 <div className="space-y-4 font-black">
-                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 font-black">{YEARS.map(y => <button key={y} onClick={() => {setMemberYearView(y); setMemberClassView('SEMUA');}} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 transition-all ${memberYearView === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md' : 'bg-white text-slate-500'}`}>TAHUN {y}</button>)}</div>
+                  <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 font-black">{YEARS.map(y => <button key={y} onClick={() => {setMemberYearView(y); setMemberClassView('SEMUA');}} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 transition-all ${memberYearView === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md font-black' : 'bg-white text-slate-500 font-black'}`}>TAHUN {y}</button>)}</div>
                   {classesConfig[memberYearView].length > 0 && (
                     <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 font-black">
-                       <button onClick={() => setMemberClassView('SEMUA')} className={`min-w-[80px] py-2 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${memberClassView === 'SEMUA' ? 'bg-slate-800 text-white border-slate-900' : 'bg-white text-slate-500'}`}>SEMUA KELAS</button>
-                       {classesConfig[memberYearView].map(c => <button key={c} onClick={() => setMemberClassView(c)} className={`min-w-[80px] py-2 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${memberClassView === c ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white text-slate-500'}`}>{c}</button>)}
+                       <button onClick={() => setMemberClassView('SEMUA')} className={`min-w-[80px] py-2 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${memberClassView === 'SEMUA' ? 'bg-slate-800 text-white border-slate-900 font-black' : 'bg-white text-slate-500 font-black'}`}>SEMUA KELAS</button>
+                       {classesConfig[memberYearView].map(c => <button key={c} onClick={() => setMemberClassView(c)} className={`min-w-[80px] py-2 rounded-xl text-[9px] font-black uppercase border-2 transition-all ${memberClassView === c ? 'bg-indigo-600 text-white border-indigo-700 font-black' : 'bg-white text-slate-500 font-black'}`}>{c}</button>)}
                     </div>
                   )}
                 </div>
               )}
               <div className="relative font-black">
                 <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                <input type="text" placeholder="CARI NAMA AHLI..." className="w-full pl-10 pr-4 py-4 bg-white rounded-2xl border font-black text-[10px] uppercase text-indigo-950 outline-none" value={searchQuery} onChange={e => setSearchQuery(e.target.value.toUpperCase())} />
+                <input type="text" placeholder="CARI NAMA AHLI..." className="w-full pl-10 pr-4 py-4 bg-white rounded-2xl border font-black text-[10px] uppercase text-indigo-950 outline-none font-black" value={searchQuery} onChange={e => setSearchQuery(e.target.value.toUpperCase())} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 font-black">
                 {members.filter(m => 
@@ -743,11 +751,11 @@ const App: React.FC = () => {
                   (searchQuery === '' || m.name.includes(searchQuery))
                 ).sort((a,b) => a.name.localeCompare(b.name)).map(m => (
                   <div key={m.id} onClick={() => { setSelectedMemberDetail(m); setIsMemberDetailOpen(true); }} className="bg-white p-5 rounded-3xl border shadow-sm flex items-center justify-between cursor-pointer hover:border-indigo-400 transition-all text-indigo-950 font-black">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-4 font-black">
                       <div className="w-10 h-10 bg-indigo-50 text-indigo-700 rounded-xl flex items-center justify-center font-black">{m.name.charAt(0)}</div>
-                      <div className="overflow-hidden">
-                        <h4 className="font-black text-[10px] uppercase truncate w-32 text-indigo-950">{m.name}</h4>
-                        <p className="text-[8px] font-black text-slate-500 mt-1 uppercase italic">
+                      <div className="overflow-hidden font-black">
+                        <h4 className="font-black text-[10px] uppercase truncate w-32 text-indigo-950 font-black">{m.name}</h4>
+                        <p className="text-[8px] font-black text-slate-500 mt-1 uppercase italic font-black">
                            {m.type === 'Murid' ? `${m.year} ${m.className || ''} • ` : ''}{getActiveLoans(m.name).length} / {getTotalInventoryForYear(m.year)} PINJAMAN
                         </p>
                       </div>
@@ -764,32 +772,32 @@ const App: React.FC = () => {
               <div className="flex flex-wrap justify-between gap-4 font-black">
                 <div className="bg-white p-2 rounded-2xl border flex flex-wrap gap-1 font-black">
                    {MONTHS.map((m, idx) => (
-                     <button key={m} onClick={() => setHistoryMonth(idx)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${historyMonth === idx ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>{m}</button>
+                     <button key={m} onClick={() => setHistoryMonth(idx)} className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase transition-all ${historyMonth === idx ? 'bg-indigo-600 text-white font-black' : 'text-slate-500 hover:bg-slate-50 font-black'}`}>{m}</button>
                    ))}
                 </div>
                 <button onClick={handleResetHistory} className="px-6 py-3 bg-rose-50 text-rose-600 rounded-2xl font-black text-[10px] uppercase border border-rose-100 flex items-center gap-2 hover:bg-rose-600 hover:text-white transition-all font-black"><RefreshCw size={16}/> RESET</button>
               </div>
               <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl font-black">
-                 <div className="p-8 border-b bg-slate-50 flex justify-between items-center">
-                    <h3 className="text-xl font-black text-indigo-900 uppercase italic">LOG {MONTHS[historyMonth].toUpperCase()}</h3>
+                 <div className="p-8 border-b bg-slate-50 flex justify-between items-center font-black">
+                    <h3 className="text-xl font-black text-indigo-900 uppercase italic font-black">LOG {MONTHS[historyMonth].toUpperCase()}</h3>
                     <button onClick={() => setIsPrintHistoryOpen(true)} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase flex items-center gap-2 shadow-lg transition-transform active:scale-95 hover:bg-indigo-700 font-black"><Printer size={18}/> PRAPAPAR & CETAK</button>
                  </div>
-                 <div className="overflow-x-auto">
-                   <table className="w-full text-left">
-                     <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-600 border-b">
-                       <tr><th className="px-8 py-6">PENGGUNA</th><th className="px-8 py-6">JUDUL BUKU</th><th className="px-8 py-6 text-center">TINDAKAN</th><th className="px-8 py-6 text-right">TARIKH</th></tr>
+                 <div className="overflow-x-auto font-black">
+                   <table className="w-full text-left font-black">
+                     <thead className="bg-slate-50 text-[9px] uppercase font-black text-slate-600 border-b font-black">
+                       <tr><th className="px-8 py-6 font-black">PENGGUNA (IDENTITI)</th><th className="px-8 py-6 font-black">JUDUL BUKU</th><th className="px-8 py-6 text-center font-black">TINDAKAN</th><th className="px-8 py-6 text-right font-black">TARIKH</th></tr>
                      </thead>
-                     <tbody className="divide-y text-[10px] font-bold text-slate-900">
+                     <tbody className="divide-y text-[10px] font-bold text-slate-900 font-black">
                        {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map(t => (
-                         <tr key={t.id} className="hover:bg-indigo-50/30 transition-colors">
-                           <td className="px-8 py-5 uppercase">{t.userName}</td>
-                           <td className="px-8 py-5 uppercase truncate max-w-[200px]">{t.bookTitle}</td>
-                           <td className="px-8 py-5 text-center">
+                         <tr key={t.id} className="hover:bg-indigo-50/30 transition-colors font-black">
+                           <td className="px-8 py-5 uppercase font-black">{getMemberInfoText(t.userName)}</td>
+                           <td className="px-8 py-5 uppercase truncate max-w-[200px] font-black">{t.bookTitle}</td>
+                           <td className="px-8 py-5 text-center font-black">
                              <span className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase ${t.action === 'Pinjaman' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'}`}>
                                {t.action}
                              </span>
                            </td>
-                           <td className="px-8 py-5 text-right italic text-slate-500">{t.timestamp}</td>
+                           <td className="px-8 py-5 text-right italic text-slate-500 font-black">{t.timestamp}</td>
                          </tr>
                        ))}
                      </tbody>
@@ -802,34 +810,34 @@ const App: React.FC = () => {
           {activeTab === 'damages' && (
             <div className="space-y-6 font-black">
               <div className="flex flex-col sm:flex-row gap-4 font-black">
-                <div className="flex-1 bg-white p-8 rounded-3xl border shadow-lg flex items-center gap-6">
-                  <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center shadow-inner"><Wallet size={32} /></div>
+                <div className="flex-1 bg-white p-8 rounded-3xl border shadow-lg flex items-center gap-6 font-black">
+                  <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center shadow-inner font-black"><Wallet size={32} /></div>
                   <div className="flex-1 font-black">
-                    <p className="text-[9px] font-black text-slate-500 uppercase">DENDA TERKUTIP (TUNAI)</p>
-                    <p className="text-4xl font-black text-emerald-600">RM {transactions.filter(t => t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Tunai').reduce((acc, t) => acc + (t.fineAmount || 0), 0).toFixed(2)}</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase font-black">DENDA TERKUTIP (TUNAI)</p>
+                    <p className="text-4xl font-black text-emerald-600 font-black">RM {transactions.filter(t => t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Tunai').reduce((acc, t) => acc + (t.fineAmount || 0), 0).toFixed(2)}</p>
                   </div>
                 </div>
-                <button onClick={() => setIsPrintDamageReportOpen(true)} className="px-8 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-[12px] uppercase shadow-xl flex items-center gap-4 hover:bg-indigo-700 transition-all font-black"><Printer size={32}/>CETAK LAPORAN</button>
+                <button onClick={() => setIsPrintDamageReportOpen(true)} className="px-8 py-6 bg-indigo-600 text-white rounded-[2rem] font-black text-[12px] uppercase shadow-xl flex items-center gap-4 hover:bg-indigo-700 transition-all font-black font-black"><Printer size={32}/>CETAK LAPORAN</button>
               </div>
               <div className="bg-white rounded-[2rem] border overflow-hidden shadow-xl font-black">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-[9px] uppercase font-black border-b text-slate-600">
-                    <tr><th className="px-8 py-6 font-black">NAMA AHLI</th><th className="px-8 py-6 font-black">JUDUL BUKU</th><th className="px-8 py-6 text-center font-black">NILAI</th><th className="px-8 py-6 text-right font-black">STATUS</th></tr>
+                <table className="w-full text-left font-black">
+                  <thead className="bg-slate-50 text-[9px] uppercase font-black border-b text-slate-600 font-black">
+                    <tr><th className="px-8 py-6 font-black">NAMA AHLI (IDENTITI)</th><th className="px-8 py-6 font-black">JUDUL BUKU</th><th className="px-8 py-6 text-center font-black">NILAI</th><th className="px-8 py-6 text-right font-black">STATUS</th></tr>
                   </thead>
-                  <tbody className="divide-y text-[10px] font-bold text-slate-900">
+                  <tbody className="divide-y text-[10px] font-bold text-slate-900 font-black">
                     {transactions.filter(t => t.status === 'Rosak/Hilang').map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-8 py-5 uppercase font-black">{t.userName}</td>
-                        <td className="px-8 py-5 uppercase truncate max-w-[200px] text-indigo-900 font-black">{t.bookTitle}</td>
-                        <td className="px-8 py-5 text-center text-rose-700 font-black">RM {t.fineAmount?.toFixed(2)}</td>
-                        <td className="px-8 py-5 text-right flex justify-end gap-2 font-black">
+                      <tr key={t.id} className="hover:bg-slate-50 transition-colors font-black">
+                        <td className="px-8 py-5 uppercase font-black">{getMemberInfoText(t.userName)}</td>
+                        <td className="px-8 py-5 uppercase truncate max-w-[200px] text-indigo-900 font-black font-black">{t.bookTitle}</td>
+                        <td className="px-8 py-5 text-center text-rose-700 font-black font-black">RM {t.fineAmount?.toFixed(2)}</td>
+                        <td className="px-8 py-5 text-right flex justify-end gap-2 font-black font-black">
                           {t.resolutionStatus === 'Tertunggak' ? (
-                            <div className="flex gap-2">
-                              <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[8px] uppercase font-black shadow-sm transition-all hover:bg-emerald-700">TUNAI</button>
-                              <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[8px] uppercase font-black shadow-sm transition-all hover:bg-indigo-700">BUKU</button>
+                            <div className="flex gap-2 font-black">
+                              <button onClick={() => handleResolveDamage(t.id, 'Tunai')} className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[8px] uppercase font-black shadow-sm transition-all hover:bg-emerald-700 font-black">TUNAI</button>
+                              <button onClick={() => handleResolveDamage(t.id, 'Buku')} className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-[8px] uppercase font-black shadow-sm transition-all hover:bg-indigo-700 font-black">BUKU</button>
                             </div>
                           ) : (
-                            <span className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-[8px] uppercase font-black border">LUNAS</span>
+                            <span className="px-3 py-1.5 bg-slate-100 text-slate-500 rounded-lg text-[8px] uppercase font-black border font-black">LUNAS</span>
                           )}
                         </td>
                       </tr>
@@ -844,7 +852,7 @@ const App: React.FC = () => {
             <div className="max-w-xl mx-auto py-10 font-black">
               <div className="bg-white p-10 rounded-[3rem] shadow-xl text-center border-b-[12px] border-indigo-600 font-black">
                 <TrendingUp size={64} className="mx-auto text-indigo-600 mb-6 font-black" />
-                <h3 className="text-2xl font-black uppercase italic mb-8 text-indigo-950">Pengurusan Sesi</h3>
+                <h3 className="text-2xl font-black uppercase italic mb-8 text-indigo-950 font-black">Pengurusan Sesi</h3>
                 <div className="space-y-4 font-black">
                   <button onClick={handleSessionPromotion} className="w-full py-5 bg-indigo-600 text-white rounded-2xl font-black uppercase text-[11px] shadow-lg flex items-center justify-center gap-3 hover:bg-indigo-700 transition-all font-black"><ArrowUpCircle size={20}/> NAIK KELAS</button>
                   <button onClick={handleSessionReset} className="w-full py-5 bg-rose-50 text-rose-600 rounded-2xl font-black uppercase text-[11px] border border-rose-100 flex items-center justify-center gap-3 hover:bg-rose-600 hover:text-white transition-all font-black"><RotateCcw size={20}/> RESET SEMUA AHLI</button>
@@ -860,45 +868,44 @@ const App: React.FC = () => {
                   <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black">
                     <RefreshCw size={24} />
                   </div>
-                  <div className="font-black">
+                  <div className="font-black font-black">
                     <h3 className="text-xl font-black uppercase italic text-indigo-950 font-black">Sinkronasi & Backup Data</h3>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest font-black">Pindah data antara laptop dan telefon</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest font-black font-black">Pindah data antara laptop dan telefon</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-black">
-                  <button onClick={handleBackupData} className="flex items-center justify-center gap-3 px-6 py-5 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-indigo-800 transition-all active:translate-y-1"><Download size={20} /> MUAT TURUN BACKUP</button>
-                  <label className="flex items-center justify-center gap-3 px-6 py-5 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-emerald-800 transition-all active:translate-y-1 cursor-pointer text-center font-black"><Upload size={20} /> MUAT NAIK BACKUP<input type="file" className="hidden" accept=".json" onChange={handleRestoreData} /></label>
+                  <button onClick={handleBackupData} className="flex items-center justify-center gap-3 px-6 py-5 bg-indigo-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-indigo-800 transition-all active:translate-y-1 font-black font-black"><Download size={20} /> MUAT TURUN BACKUP</button>
+                  <label className="flex items-center justify-center gap-3 px-6 py-5 bg-emerald-600 text-white rounded-2xl font-black text-[10px] uppercase shadow-lg border-b-4 border-emerald-800 transition-all active:translate-y-1 cursor-pointer text-center font-black font-black"><Upload size={20} /> MUAT NAIK BACKUP<input type="file" className="hidden" accept=".json" onChange={handleRestoreData} /></label>
                 </div>
               </div>
 
               <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-slate-100 font-black">
-                <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Tetapan Pentadbir</h3>
+                <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950 font-black">Tetapan Pentadbir</h3>
                 <div className="space-y-6 font-black">
                   <div><label className="text-[10px] uppercase text-slate-500 mb-2 block ml-1 font-black">ID PENGGUNA</label><input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminId} onChange={e => setAdminSettings({ ...adminSettings, adminId: e.target.value })} /></div>
                   <div><label className="text-[10px] uppercase text-slate-500 mb-2 block ml-1 font-black">KATA LALUAN</label><input type="text" className="w-full p-4 border-2 rounded-xl text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.adminPass} onChange={e => setAdminSettings({ ...adminSettings, adminPass: e.target.value })} /></div>
                   <div><label className="text-[10px] uppercase text-slate-500 mb-2 block ml-1 font-black">NAMA SEKOLAH</label><input type="text" className="w-full p-4 border-2 rounded-xl uppercase text-indigo-950 bg-slate-50 focus:border-indigo-600 outline-none font-black" value={adminSettings.schoolName} onChange={e => setAdminSettings({ ...adminSettings, schoolName: e.target.value.toUpperCase() })} /></div>
-                  <button onClick={() => { localStorage.setItem('spbt_settings', JSON.stringify(adminSettings)); alert("Simpan!"); }} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase shadow-xl font-black tracking-widest hover:bg-indigo-700">KEMASKINI TETAPAN</button>
+                  <button onClick={() => { localStorage.setItem('spbt_settings', JSON.stringify(adminSettings)); alert("Simpan!"); }} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase shadow-xl font-black tracking-widest hover:bg-indigo-700 font-black font-black">KEMASKINI TETAPAN</button>
                 </div>
               </div>
 
-              {/* PENGURUSAN KELAS (DIPULIHKAN) */}
               <div className="bg-white p-10 rounded-[3rem] shadow-xl border-2 border-emerald-100 font-black">
-                <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950">Pengurusan Nama Kelas</h3>
-                <div className="space-y-6">
-                   <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2">
+                <h3 className="text-xl font-black uppercase italic mb-8 border-b pb-4 text-indigo-950 font-black">Pengurusan Nama Kelas</h3>
+                <div className="space-y-6 font-black">
+                   <div className="flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2 font-black">
                      {YEARS.map(y => (
-                       <button key={y} onClick={() => setClassConfigYear(y)} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${classConfigYear === y ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-slate-50 text-slate-500'}`}>TAHUN {y}</button>
+                       <button key={y} onClick={() => setClassConfigYear(y)} className={`min-w-[70px] py-3 rounded-xl font-black text-[10px] border-2 uppercase transition-all ${classConfigYear === y ? 'bg-indigo-600 text-white border-indigo-700 font-black' : 'bg-slate-50 text-slate-500 font-black'}`}>TAHUN {y}</button>
                      ))}
                    </div>
-                   <div className="flex gap-2">
-                     <input type="text" placeholder="CONTOH: AMANAH" className="flex-1 p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600 text-indigo-950" value={newClassName} onChange={e => setNewClassName(e.target.value)} />
-                     <button onClick={handleAddClass} className="px-6 py-4 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase shadow-lg">TAMBAH</button>
+                   <div className="flex gap-2 font-black">
+                     <input type="text" placeholder="CONTOH: AMANAH" className="flex-1 p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600 font-black" value={newClassName} onChange={e => setNewClassName(e.target.value)} />
+                     <button onClick={handleAddClass} className="px-6 py-4 bg-indigo-600 text-white rounded-xl font-black text-[11px] uppercase shadow-lg font-black font-black">TAMBAH</button>
                    </div>
-                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 font-black">
                      {classesConfig[classConfigYear].map(c => (
-                       <div key={c} className="p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl flex items-center justify-between">
-                         <span className="text-[10px] font-black uppercase text-indigo-900">{c}</span>
-                         <button onClick={() => handleRemoveClass(classConfigYear, c)} className="text-rose-400 hover:text-rose-600"><Trash2 size={14}/></button>
+                       <div key={c} className="p-3 bg-indigo-50 border-2 border-indigo-100 rounded-xl flex items-center justify-between font-black">
+                         <span className="text-[10px] font-black uppercase text-indigo-900 font-black">{c}</span>
+                         <button onClick={() => handleRemoveClass(classConfigYear, c)} className="text-rose-400 hover:text-rose-600 font-black"><Trash2 size={14}/></button>
                        </div>
                      ))}
                    </div>
@@ -911,24 +918,25 @@ const App: React.FC = () => {
 
       {/* --- PRAPAPAR LAPORAN KOS GANTI (PORTRAIT) --- */}
       {isPrintDamageReportOpen && (
-        <div className="fixed inset-0 bg-slate-500/50 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto print-container portrait-print no-scrollbar">
-          <div className="p-4 border-b flex justify-between items-center bg-rose-700 text-white sticky top-0 z-50 no-print font-black">
-            <h3 className="text-sm font-black uppercase italic">Prapapar Laporan Kos Ganti (Portrait)</h3>
-            <div className="flex gap-4">
+        <div className="fixed inset-0 bg-slate-500/50 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto print-container portrait-print no-scrollbar font-black">
+          <div className="p-4 border-b flex justify-between items-center bg-rose-700 text-white sticky top-0 z-50 no-print shadow-xl font-black">
+            <h3 className="text-sm font-black uppercase italic font-black">Prapapar Laporan Kos Ganti (Portrait)</h3>
+            <div className="flex gap-4 font-black">
                <button onClick={() => window.print()} className="px-6 py-2 bg-white text-rose-700 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-slate-100 transition-all font-black"><Printer size={14} className="inline mr-2"/> CETAK</button>
-               <button onClick={() => setIsPrintDamageReportOpen(false)} className="p-2 text-white/50 hover:text-white transition-all"><X size={24}/></button>
+               <button onClick={() => setIsPrintDamageReportOpen(false)} className="p-2 text-white/50 hover:text-white transition-all font-black"><X size={24}/></button>
             </div>
           </div>
-          <div className="a4-paper-portrait text-black">
-             <div className="border-b-4 border-black pb-4 mb-10 text-center">
-                <h2 className="text-lg font-bold uppercase text-black">{adminSettings.schoolName}</h2>
-                <h1 className="text-2xl font-black uppercase underline mt-2 text-black">REKOD KEROSAKAN & KOS GANTI BUKU TEKS</h1>
+          <div className="a4-paper-portrait text-black font-black">
+             <div className="border-b-4 border-black pb-4 mb-10 text-center font-black">
+                <h2 className="text-lg font-bold uppercase text-black font-black">{adminSettings.schoolName}</h2>
+                <h1 className="text-2xl font-black uppercase underline mt-2 text-black font-black">REKOD KEROSAKAN & KOS GANTI BUKU TEKS</h1>
              </div>
 
+             {/* SENARAI MURID IKUT TAHUN */}
              {YEARS.map(y => {
                const yearTrans = transactions.filter(t => {
                  const m = members.find(member => member.name === t.userName);
-                 return t.status === 'Rosak/Hilang' && m?.year === y;
+                 return t.status === 'Rosak/Hilang' && m?.year === y && m?.type === 'Murid';
                });
                if (yearTrans.length === 0) return null;
 
@@ -944,54 +952,54 @@ const App: React.FC = () => {
                const sortedClassNames = [...(classesConfig[y] || []), 'TIADA KELAS'].filter(name => classGroups[name]);
 
                return (
-                 <div key={y} className="mb-12">
-                   <h3 className="text-xl font-black uppercase border-b-4 border-black mb-6 bg-slate-100 p-3 text-black">TAHUN {y}</h3>
+                 <div key={y} className="mb-12 font-black">
+                   <h3 className="text-xl font-black uppercase border-b-4 border-black mb-6 bg-slate-100 p-3 text-black font-black">TAHUN {y}</h3>
                    {sortedClassNames.map(clsName => (
-                     <div key={clsName} className="mb-10 ml-4">
-                        <h4 className="text-lg font-black uppercase mb-4 text-black border-l-8 border-black pl-3 bg-slate-50">KELAS: {clsName}</h4>
+                     <div key={clsName} className="mb-10 ml-4 font-black">
+                        <h4 className="text-lg font-black uppercase mb-4 text-black border-l-8 border-black pl-3 bg-slate-50 font-black">KELAS: {clsName}</h4>
                         {Object.entries(classGroups[clsName]).map(([studentName, list]) => {
                           const total = list.reduce((acc, curr) => {
                             if (curr.resolutionStatus === 'Selesai' && curr.resolutionMethod === 'Buku') return acc;
                             return acc + (curr.fineAmount || 0);
                           }, 0);
                           const isSettled = list.every(t => t.resolutionStatus === 'Selesai');
-                          const studentClass = members.find(m => m.name === studentName)?.className || clsName;
+                          const info = getMemberInfoText(studentName);
 
                           return (
-                            <div key={studentName} className="mb-8 border-2 border-black p-4 ml-2 text-black break-inside-avoid">
-                              <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-1">
-                                 <h4 className="text-xs font-black uppercase text-black">NAMA MURID: {studentName} ({studentClass})</h4>
+                            <div key={studentName} className="mb-8 border-2 border-black p-4 ml-2 text-black break-inside-avoid font-black">
+                              <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-1 font-black">
+                                 <h4 className="text-xs font-black uppercase text-black font-black">NAMA PEMINJAM: {info}</h4>
                                  <span className={`text-[10px] font-black uppercase ${isSettled ? 'text-green-600' : 'text-red-600'}`}>STATUS: {isSettled ? 'LUNAS' : 'TUNGGAKAN'}</span>
                               </div>
-                              <table className="w-full border-collapse border-2 border-black text-[10px] text-black">
+                              <table className="w-full border-collapse border-2 border-black text-[10px] text-black font-black">
                                 <thead>
-                                  <tr className="bg-slate-50">
-                                    <th className="border-2 border-black p-2 w-8 uppercase text-black">BIL</th>
-                                    <th className="border-2 border-black p-2 text-left uppercase text-black">JUDUL BUKU</th>
-                                    <th className="border-2 border-black p-2 w-24 text-center uppercase text-black">HARGA (RM)</th>
-                                    <th className="border-2 border-black p-2 w-36 text-center uppercase text-black">CATATAN</th>
+                                  <tr className="bg-slate-50 font-black">
+                                    <th className="border-2 border-black p-2 w-8 uppercase text-black font-black">BIL</th>
+                                    <th className="border-2 border-black p-2 text-left uppercase text-black font-black">JUDUL BUKU</th>
+                                    <th className="border-2 border-black p-2 w-24 text-center uppercase text-black font-black">HARGA (RM)</th>
+                                    <th className="border-2 border-black p-2 w-36 text-center uppercase text-black font-black">CATATAN</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                   {list.map((t, idx) => {
                                     const showPrice = t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Buku' ? 0 : (t.fineAmount || 0);
                                     return (
-                                     <tr key={t.id}>
-                                       <td className="border-2 border-black p-2 text-center font-bold text-black">{idx + 1}</td>
-                                       <td className="border-2 border-black p-2 uppercase font-bold text-black">{t.bookTitle}</td>
-                                       <td className="border-2 border-black p-2 text-center font-black text-black">
+                                     <tr key={t.id} className="font-black">
+                                       <td className="border-2 border-black p-2 text-center font-bold text-black font-black">{idx + 1}</td>
+                                       <td className="border-2 border-black p-2 uppercase font-bold text-black font-black">{t.bookTitle}</td>
+                                       <td className="border-2 border-black p-2 text-center font-black text-black font-black">
                                          {showPrice === 0 ? '0.00' : showPrice.toFixed(2)}
                                        </td>
-                                       <td className={`border-2 border-black p-2 text-center uppercase font-black text-[9px] ${t.resolutionStatus === 'Selesai' ? 'text-green-700' : 'text-red-700'}`}>
+                                       <td className={`border-2 border-black p-2 text-center uppercase font-black text-[9px] font-black ${t.resolutionStatus === 'Selesai' ? 'text-green-700 font-black' : 'text-red-700 font-black'}`}>
                                          {t.resolutionStatus === 'Selesai' ? `LUNAS (${t.resolutionMethod})` : 'TERTUNGGAK'}
                                        </td>
                                      </tr>
                                     );
                                   })}
                                   <tr className="bg-slate-50 font-black">
-                                    <td colSpan={2} className="border-2 border-black p-3 text-right uppercase text-black">JUMLAH KOS GANTI:</td>
-                                    <td className="border-2 border-black p-3 text-center bg-white text-black underline font-black">RM {total.toFixed(2)}</td>
-                                    <td className="border-2 border-black p-3"></td>
+                                    <td colSpan={2} className="border-2 border-black p-3 text-right uppercase text-black font-black">JUMLAH KOS GANTI:</td>
+                                    <td className="border-2 border-black p-3 text-center bg-white text-black underline font-black font-black">RM {total.toFixed(2)}</td>
+                                    <td className="border-2 border-black p-3 font-black"></td>
                                   </tr>
                                 </tbody>
                               </table>
@@ -1003,34 +1011,99 @@ const App: React.FC = () => {
                  </div>
                );
              })}
+
+             {/* SENARAI GURU DI BAWAH SEKALI (DITAMBAH) */}
+             {(() => {
+                const teacherTrans = transactions.filter(t => {
+                    const m = members.find(member => member.name === t.userName);
+                    return t.status === 'Rosak/Hilang' && m?.type === 'Guru';
+                });
+                if (teacherTrans.length === 0) return null;
+
+                const teacherGroups: Record<string, Transaction[]> = {};
+                teacherTrans.forEach(t => {
+                    if (!teacherGroups[t.userName]) teacherGroups[t.userName] = [];
+                    teacherGroups[t.userName].push(t);
+                });
+
+                return (
+                    <div className="mt-16 font-black">
+                        <h3 className="text-xl font-black uppercase border-b-4 border-black mb-6 bg-slate-200 p-3 text-black font-black">BAHAGIAN GURU</h3>
+                        {Object.entries(teacherGroups).map(([teacherName, list]) => {
+                            const total = list.reduce((acc, curr) => {
+                                if (curr.resolutionStatus === 'Selesai' && curr.resolutionMethod === 'Buku') return acc;
+                                return acc + (curr.fineAmount || 0);
+                            }, 0);
+                            const isSettled = list.every(t => t.resolutionStatus === 'Selesai');
+
+                            return (
+                                <div key={teacherName} className="mb-8 border-2 border-black p-4 ml-2 text-black break-inside-avoid font-black">
+                                    <div className="flex justify-between items-center mb-3 border-b-2 border-black pb-1 font-black">
+                                        <h4 className="text-xs font-black uppercase text-black font-black">NAMA PEMINJAM: {getMemberInfoText(teacherName)}</h4>
+                                        <span className={`text-[10px] font-black uppercase ${isSettled ? 'text-green-600' : 'text-red-600'}`}>STATUS: {isSettled ? 'LUNAS' : 'TUNGGAKAN'}</span>
+                                    </div>
+                                    <table className="w-full border-collapse border-2 border-black text-[10px] text-black font-black">
+                                        <thead>
+                                            <tr className="bg-slate-50 font-black">
+                                                <th className="border-2 border-black p-2 w-8 uppercase text-black font-black">BIL</th>
+                                                <th className="border-2 border-black p-2 text-left uppercase text-black font-black">JUDUL BUKU</th>
+                                                <th className="border-2 border-black p-2 w-24 text-center uppercase text-black font-black">HARGA (RM)</th>
+                                                <th className="border-2 border-black p-2 w-36 text-center uppercase text-black font-black">CATATAN</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {list.map((t, idx) => {
+                                                const showPrice = t.resolutionStatus === 'Selesai' && t.resolutionMethod === 'Buku' ? 0 : (t.fineAmount || 0);
+                                                return (
+                                                    <tr key={t.id} className="font-black">
+                                                        <td className="border-2 border-black p-2 text-center font-bold text-black font-black">{idx + 1}</td>
+                                                        <td className="border-2 border-black p-2 uppercase font-bold text-black font-black">{t.bookTitle}</td>
+                                                        <td className="border-2 border-black p-2 text-center font-black text-black font-black">{showPrice.toFixed(2)}</td>
+                                                        <td className={`border-2 border-black p-2 text-center uppercase font-black text-[9px] font-black ${t.resolutionStatus === 'Selesai' ? 'text-green-700 font-black' : 'text-red-700 font-black'}`}>{t.resolutionStatus === 'Selesai' ? `LUNAS (${t.resolutionMethod})` : 'TERTUNGGAK'}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            <tr className="bg-slate-50 font-black">
+                                                <td colSpan={2} className="border-2 border-black p-3 text-right uppercase text-black font-black">JUMLAH KOS GANTI:</td>
+                                                <td className="border-2 border-black p-3 text-center bg-white text-black underline font-black font-black">RM {total.toFixed(2)}</td>
+                                                <td className="border-2 border-black p-3 font-black"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+             })()}
           </div>
         </div>
       )}
 
       {/* --- PRAPAPAR BORANG MURID (LANDSCAPE) --- */}
       {isPrintFormOpen && selectedMemberDetail && (
-        <div className="fixed inset-0 bg-slate-500/50 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto print-container landscape-print no-scrollbar">
+        <div className="fixed inset-0 bg-slate-500/50 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto print-container landscape-print no-scrollbar font-black">
           <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white sticky top-0 z-50 no-print font-black">
-            <h3 className="text-sm font-black uppercase italic">Prapapar Borang Murid (Melintang)</h3>
-            <div className="flex gap-4">
+            <h3 className="text-sm font-black uppercase italic font-black">Prapapar Borang Murid (Melintang)</h3>
+            <div className="flex gap-4 font-black">
                <button onClick={() => window.print()} className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg transition-transform active:scale-95 hover:bg-emerald-700 font-black"><Printer size={14} className="inline mr-2"/> CETAK</button>
                <button onClick={() => setIsPrintFormOpen(false)} className="p-2 text-white/50 hover:text-white transition-all font-black"><X size={24}/></button>
             </div>
           </div>
-          <div className="a4-paper-landscape text-black">
-             <div className="border-b-2 border-black pb-4 mb-6 text-center text-black">
-                <h2 className="text-lg font-bold uppercase text-black leading-tight">{adminSettings.schoolName}</h2>
-                <h1 className="text-2xl font-black uppercase underline text-black">REKOD PINJAMAN & PEMULANGAN BUKU TEKS (SPBT)</h1>
-                <h3 className="text-md font-bold mt-1 uppercase text-black">TAHUN {selectedMemberDetail.year} {selectedMemberDetail.className} | SESI {new Date().getFullYear()}</h3>
+          <div className="a4-paper-landscape text-black font-black">
+             <div className="border-b-2 border-black pb-4 mb-6 text-center text-black font-black">
+                <h2 className="text-lg font-bold uppercase text-black leading-tight font-black">{adminSettings.schoolName}</h2>
+                <h1 className="text-2xl font-black uppercase underline text-black font-black">REKOD PINJAMAN & PEMULANGAN BUKU TEKS (SPBT)</h1>
+                <h3 className="text-md font-bold mt-1 uppercase text-black font-black">TAHUN {selectedMemberDetail.year} {selectedMemberDetail.className} | SESI {new Date().getFullYear()}</h3>
              </div>
              
-             <div className="mb-4 text-[10px] font-bold uppercase text-black flex justify-between">
-                <div className="flex gap-2 items-center flex-1">NAMA MURID: <span className="border-b-2 border-black flex-1 font-black px-2">{selectedMemberDetail.name}</span></div>
+             <div className="mb-4 text-[10px] font-bold uppercase text-black flex justify-between font-black">
+                <div className="flex gap-2 items-center flex-1 font-black">NAMA MURID: <span className="border-b-2 border-black flex-1 font-black px-2 font-black">{selectedMemberDetail.name}</span></div>
                 <div className="w-12"></div>
-                <div className="flex gap-2 items-center w-64">TARIKH: <span className="border-b-2 border-black flex-1 font-black px-2 text-right">{new Date().toLocaleDateString('ms-MY')}</span></div>
+                <div className="flex gap-2 items-center w-64 font-black">TARIKH: <span className="border-b-2 border-black flex-1 font-black px-2 text-right font-black">{new Date().toLocaleDateString('ms-MY')}</span></div>
              </div>
 
-             <table className="w-full border-collapse border-2 border-black text-[9px] text-black table-fixed">
+             <table className="w-full border-collapse border-2 border-black text-[9px] text-black table-fixed font-black">
                 <colgroup>
                     <col style={{width: '35px'}} />
                     <col style={{width: '90px'}} />
@@ -1042,7 +1115,7 @@ const App: React.FC = () => {
                     <col style={{width: '110px'}} />
                 </colgroup>
                 <thead>
-                  <tr className="bg-slate-50">
+                  <tr className="bg-slate-50 font-black">
                     <th className="border-2 border-black p-2 uppercase text-center font-black">BIL</th>
                     <th className="border-2 border-black p-2 uppercase text-center font-black">KOD</th>
                     <th className="border-2 border-black p-2 text-left uppercase pl-2 font-black">JUDUL BUKU (1 BARIS)</th>
@@ -1054,18 +1127,18 @@ const App: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="bg-slate-100 font-black"><td colSpan={8} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase text-[11px] bg-slate-200">BAHAGIAN 1: BUKU TEKS (WAJIB DIPULANGKAN)</td></tr>
+                  <tr className="bg-slate-100 font-black font-black"><td colSpan={8} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase text-[11px] bg-slate-200">BAHAGIAN 1: BUKU TEKS (WAJIB DIPULANGKAN)</td></tr>
                   {books.filter(b => b.year === selectedMemberDetail.year && b.type === 'Buku Teks').map((b, idx) => {
                     const data = editableFormData[b.id] || { serial: '', receivedDate: '', returnDate: '', status: '' };
                     const isDamaged = data.status.toUpperCase().includes('ROSAK') || data.status.toUpperCase().includes('HILANG');
                     return (
-                      <tr key={b.id} className="h-8">
-                        <td className="border-2 border-black p-1 text-center font-bold text-black">{idx + 1}</td>
-                        <td className="border-2 border-black p-1 text-center font-black text-black">{b.code}</td>
-                        <td className="border-2 border-black p-1 font-bold uppercase pl-2 text-black">
+                      <tr key={b.id} className="h-8 font-black">
+                        <td className="border-2 border-black p-1 text-center font-bold text-black font-black">{idx + 1}</td>
+                        <td className="border-2 border-black p-1 text-center font-black text-black font-black">{b.code}</td>
+                        <td className="border-2 border-black p-1 font-bold uppercase pl-2 text-black font-black">
                            <div className="truncate whitespace-nowrap overflow-hidden" style={{maxWidth: '350px'}}>{b.title}</div>
                         </td>
-                        <td className="border-2 border-black p-1 text-center font-bold text-black">{b.price.toFixed(2)}</td>
+                        <td className="border-2 border-black p-1 text-center font-bold text-black font-black">{b.price.toFixed(2)}</td>
                         <td className="border-2 border-black p-0"><input type="text" value={data.serial} onChange={e => handleUpdateFormData(b.id, 'serial', e.target.value.toUpperCase())} className="w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase text-black" /></td>
                         <td className="border-2 border-black p-0"><input type="text" value={data.receivedDate} onChange={e => handleUpdateFormData(b.id, 'receivedDate', e.target.value)} className="w-full h-full text-center text-[10px] outline-none bg-transparent text-black" /></td>
                         <td className="border-2 border-black p-0"><input type="text" value={data.returnDate} onChange={e => handleUpdateFormData(b.id, 'returnDate', e.target.value)} className="w-full h-full text-center text-[10px] outline-none bg-transparent text-black" /></td>
@@ -1073,47 +1146,47 @@ const App: React.FC = () => {
                       </tr>
                     );
                   })}
-                  <tr className="bg-slate-100 font-black"><td colSpan={8} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase text-[11px] bg-slate-200">BAHAGIAN 2: BUKU AKTIVITI (TIDAK PERLU PULANG)</td></tr>
+                  <tr className="bg-slate-100 font-black font-black"><td colSpan={8} className="border-2 border-black px-4 py-1.5 font-black text-center uppercase text-[11px] bg-slate-200">BAHAGIAN 2: BUKU AKTIVITI (TIDAK PERLU PULANG)</td></tr>
                   {books.filter(b => b.year === selectedMemberDetail.year && b.type === 'Buku Aktiviti').map((b, idx) => {
                     const data = editableFormData[b.id] || { serial: '', receivedDate: '', returnDate: '', status: '' };
                     return (
-                      <tr key={b.id} className="h-8">
-                        <td className="border-2 border-black p-1 text-center font-bold text-black">{idx + 1}</td>
-                        <td className="border-2 border-black p-1 text-center font-black text-black">{b.code}</td>
-                        <td className="border-2 border-black p-1 font-bold uppercase pl-2 text-black">
+                      <tr key={b.id} className="h-8 font-black">
+                        <td className="border-2 border-black p-1 text-center font-bold text-black font-black">{idx + 1}</td>
+                        <td className="border-2 border-black p-1 text-center font-black text-black font-black">{b.code}</td>
+                        <td className="border-2 border-black p-1 font-bold uppercase pl-2 text-black font-black">
                            <div className="truncate whitespace-nowrap overflow-hidden" style={{maxWidth: '350px'}}>{b.title}</div>
                         </td>
-                        <td className="border-2 border-black p-1 text-center font-bold text-black">{b.price.toFixed(2)}</td>
+                        <td className="border-2 border-black p-1 text-center font-bold text-black font-black">{b.price.toFixed(2)}</td>
                         <td className="border-2 border-black p-0"><input type="text" value={data.serial} onChange={e => handleUpdateFormData(b.id, 'serial', e.target.value.toUpperCase())} className="w-full h-full text-center font-black text-[10px] outline-none bg-transparent uppercase text-black" /></td>
                         <td className="border-2 border-black p-0"><input type="text" value={data.receivedDate} onChange={e => handleUpdateFormData(b.id, 'receivedDate', e.target.value)} className="w-full h-full text-center text-[10px] outline-none bg-transparent text-black" /></td>
-                        <td colSpan={2} className="border-2 border-black p-1 text-center italic text-[9px] font-black uppercase bg-slate-50 text-black">MILIK PERIBADI MURID</td>
+                        <td colSpan={2} className="border-2 border-black p-1 text-center italic text-[9px] font-black uppercase bg-slate-50 text-black font-black">MILIK PERIBADI MURID</td>
                       </tr>
                     );
                   })}
                 </tbody>
              </table>
 
-             <div className="mt-8 grid grid-cols-2 gap-10 text-black">
-                <div className="border-2 border-black p-4 rounded-lg bg-slate-50">
-                    <p className="text-[10px] font-black uppercase mb-1">AKUAN PENERIMAAN:</p>
-                    <p className="text-[8px] leading-tight mb-8">Saya telah menerima buku-buku tersebut dalam keadaan baik dan berjanji akan menjaganya dengan baik.</p>
-                    <div className="flex justify-between items-end">
-                        <div className="text-center w-40">
+             <div className="mt-8 grid grid-cols-2 gap-10 text-black font-black">
+                <div className="border-2 border-black p-4 rounded-lg bg-slate-50 font-black">
+                    <p className="text-[10px] font-black uppercase mb-1 font-black">AKUAN PENERIMAAN:</p>
+                    <p className="text-[8px] leading-tight mb-8 font-black">Saya telah menerima buku-buku tersebut dalam keadaan baik dan berjanji akan menjaganya dengan baik.</p>
+                    <div className="flex justify-between items-end font-black">
+                        <div className="text-center w-40 font-black">
                             <div className="border-b-2 border-black w-full mb-1"></div>
-                            <p className="text-[8px] font-bold text-black">( IBU BAPA / PENJAGA )</p>
+                            <p className="text-[8px] font-bold text-black font-black">( IBU BAPA / PENJAGA )</p>
                         </div>
-                        <div className="text-right italic text-[8px] text-black">Tarikh: ...........................</div>
+                        <div className="text-right italic text-[8px] text-black font-black">Tarikh: ...........................</div>
                     </div>
                 </div>
-                <div className="border-2 border-black p-4 rounded-lg bg-slate-50">
-                    <p className="text-[10px] font-black uppercase mb-1">PENGESAHAN PENYELARAS:</p>
-                    <p className="text-[8px] leading-tight mb-8">Urusan direkodkan secara elektronik dalam E-SPBT PINTAR.</p>
-                    <div className="flex justify-between items-end">
-                        <div className="text-center w-40">
+                <div className="border-2 border-black p-4 rounded-lg bg-slate-50 font-black">
+                    <p className="text-[10px] font-black uppercase mb-1 font-black">PENGESAHAN PENYELARAS:</p>
+                    <p className="text-[8px] leading-tight mb-8 font-black">Urusan direkodkan secara elektronik dalam E-SPBT PINTAR.</p>
+                    <div className="flex justify-between items-end font-black">
+                        <div className="text-center w-40 font-black">
                             <div className="border-b-2 border-black w-full mb-1"></div>
-                            <p className="text-[8px] font-bold text-black">( COP & TANDATANGAN )</p>
+                            <p className="text-[8px] font-bold text-black font-black">( COP & TANDATANGAN )</p>
                         </div>
-                        <div className="text-right italic text-[8px] text-black">Unit SPBT {adminSettings.schoolName}</div>
+                        <div className="text-right italic text-[8px] text-black font-black">Unit SPBT {adminSettings.schoolName}</div>
                     </div>
                 </div>
              </div>
@@ -1123,32 +1196,32 @@ const App: React.FC = () => {
 
       {/* --- PRAPAPAR LOG REKOD BULANAN (PORTRAIT) --- */}
       {isPrintHistoryOpen && (
-        <div className="fixed inset-0 bg-slate-500/50 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto print-container portrait-print no-scrollbar">
+        <div className="fixed inset-0 bg-slate-500/50 backdrop-blur-sm z-[9999] flex flex-col overflow-y-auto print-container portrait-print no-scrollbar font-black">
           <div className="p-4 border-b flex justify-between items-center bg-indigo-950 text-white sticky top-0 z-[100] no-print shadow-xl font-black">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 font-black">
                <History size={20} className="text-indigo-400" />
-               <h3 className="text-sm font-black uppercase italic">Prapapar Log Rekod (Portrait)</h3>
+               <h3 className="text-sm font-black uppercase italic font-black">Prapapar Log Rekod (Portrait)</h3>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-4 font-black">
                <button onClick={() => window.print()} className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-black text-[11px] uppercase shadow-lg transition-all hover:bg-emerald-700 font-black"><Printer size={16}/> CETAK SEKARANG</button>
                <button onClick={() => setIsPrintHistoryOpen(false)} className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all"><X size={20}/></button>
             </div>
           </div>
           
-          <div className="a4-paper-portrait text-black">
+          <div className="a4-paper-portrait text-black font-black">
              <div className="border-b-4 border-black pb-8 mb-10 text-center font-black">
-                <p className="text-md font-bold uppercase mb-1">{adminSettings.schoolName}</p>
-                <h1 className="text-2xl font-black uppercase underline">LOG TRANSAKSI BUKU TEKS ELEKTRONIK</h1>
-                <p className="text-sm font-black mt-3 uppercase italic">BAGI BULAN: {MONTHS[historyMonth].toUpperCase()} {new Date().getFullYear()}</p>
+                <p className="text-md font-bold uppercase mb-1 font-black">{adminSettings.schoolName}</p>
+                <h1 className="text-2xl font-black uppercase underline font-black">LOG TRANSAKSI BUKU TEKS ELEKTRONIK</h1>
+                <p className="text-sm font-black mt-3 uppercase italic font-black">BAGI BULAN: {MONTHS[historyMonth].toUpperCase()} {new Date().getFullYear()}</p>
              </div>
 
-             <div className="mb-6 flex justify-between items-end text-[10px] font-bold uppercase text-black font-black">
-                <div>
-                   <p>Dijana oleh: {adminSettings.adminName}</p>
-                   <p>Tarikh: {new Date().toLocaleDateString('ms-MY')}</p>
+             <div className="mb-6 flex justify-between items-end text-[10px] font-bold uppercase text-black font-black font-black">
+                <div className="font-black">
+                   <p className="font-black">Dijana oleh: {adminSettings.adminName}</p>
+                   <p className="font-black">Tarikh: {new Date().toLocaleDateString('ms-MY')}</p>
                 </div>
-                <div className="text-right">
-                   <p>Jumlah: {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).length} Rekod</p>
+                <div className="text-right font-black">
+                   <p className="font-black">Jumlah: {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).length} Rekod</p>
                 </div>
              </div>
 
@@ -1156,7 +1229,7 @@ const App: React.FC = () => {
                 <thead>
                   <tr className="bg-slate-100 font-black">
                     <th className="border-2 border-black p-3 text-center w-12 uppercase font-black">BIL</th>
-                    <th className="border-2 border-black p-3 text-left uppercase font-black">AHLI / GURU</th>
+                    <th className="border-2 border-black p-3 text-left uppercase font-black">AHLI / GURU (IDENTITI LENGKAP)</th>
                     <th className="border-2 border-black p-3 text-left uppercase font-black">JUDUL BUKU</th>
                     <th className="border-2 border-black p-3 text-center w-24 uppercase font-black">TINDAKAN</th>
                     <th className="border-2 border-black p-3 text-right w-32 uppercase font-black">TARIKH & MASA</th>
@@ -1166,18 +1239,18 @@ const App: React.FC = () => {
                   {transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).length > 0 ? (
                     transactions.filter(t => new Date(t.createdAt).getMonth() === historyMonth).map((t, idx) => (
                       <tr key={t.id} className="text-black font-black">
-                        <td className="border-2 border-black p-3 text-center font-bold text-black">{idx + 1}</td>
-                        <td className="border-2 border-black p-3 font-black uppercase text-black">{t.userName}</td>
-                        <td className="border-2 border-black p-3 font-bold uppercase text-black">
+                        <td className="border-2 border-black p-3 text-center font-bold text-black font-black">{idx + 1}</td>
+                        <td className="border-2 border-black p-3 font-black uppercase text-black font-black">{getMemberInfoText(t.userName)}</td>
+                        <td className="border-2 border-black p-3 font-bold uppercase text-black font-black">
                            <div className="truncate whitespace-nowrap overflow-hidden" style={{maxWidth: '220px'}}>{t.bookTitle}</div>
                         </td>
-                        <td className="border-2 border-black p-3 text-center font-black uppercase italic text-black">{t.action}</td>
-                        <td className="border-2 border-black p-3 text-right font-medium text-black">{t.timestamp}</td>
+                        <td className="border-2 border-black p-3 text-center font-black uppercase italic text-black font-black">{t.action}</td>
+                        <td className="border-2 border-black p-3 text-right font-medium text-black font-black">{t.timestamp}</td>
                       </tr>
                     ))
                   ) : (
-                    <tr>
-                      <td colSpan={5} className="border-2 border-black p-10 text-center font-bold italic uppercase opacity-50 text-black">Tiada rekod transaksi dijumpai.</td>
+                    <tr className="font-black">
+                      <td colSpan={5} className="border-2 border-black p-10 text-center font-bold italic uppercase opacity-50 text-black font-black">Tiada rekod transaksi dijumpai.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1189,36 +1262,36 @@ const App: React.FC = () => {
       {/* --- MODAL BUTIRAN AHLI --- */}
       {isMemberDetailOpen && selectedMemberDetail && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-xl z-[200] flex items-center justify-center p-4 no-print font-black">
-          <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border-b-[15px] border-indigo-600">
-            <div className="p-8 border-b bg-indigo-50/50 flex justify-between items-center text-indigo-950">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl shrink-0">{selectedMemberDetail.name.charAt(0)}</div>
-                <div>
-                   <h3 className="text-xl font-black uppercase italic leading-none">{selectedMemberDetail.name}</h3>
-                   <p className="text-[9px] font-black text-indigo-700 uppercase mt-2">
+          <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border-b-[15px] border-indigo-600 font-black">
+            <div className="p-8 border-b bg-indigo-50/50 flex justify-between items-center text-indigo-950 font-black">
+              <div className="flex items-center gap-4 font-black">
+                <div className="w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center font-black text-2xl shrink-0 font-black">{selectedMemberDetail.name.charAt(0)}</div>
+                <div className="font-black">
+                   <h3 className="text-xl font-black uppercase italic leading-none font-black">{selectedMemberDetail.name}</h3>
+                   <p className="text-[9px] font-black text-indigo-700 uppercase mt-2 font-black">
                       {selectedMemberDetail.type} {selectedMemberDetail.year ? `• TAHUN ${selectedMemberDetail.year} ${selectedMemberDetail.className || ''}` : ''}
                    </p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => { setMemberToEdit({ ...selectedMemberDetail }); setIsEditingMember(true); }} className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg"><Edit2 size={20}/></button>
-                <button onClick={() => setIsMemberDetailOpen(false)} className="p-2 text-slate-300 hover:text-rose-500"><X size={20}/></button>
+              <div className="flex gap-2 font-black">
+                <button onClick={() => { setMemberToEdit({ ...selectedMemberDetail }); setIsEditingMember(true); }} className="p-2 text-indigo-600 hover:bg-indigo-100 rounded-lg font-black"><Edit2 size={20}/></button>
+                <button onClick={() => setIsMemberDetailOpen(false)} className="p-2 text-slate-300 hover:text-rose-500 font-black"><X size={20}/></button>
               </div>
             </div>
-            <div className="p-8 overflow-y-auto max-h-[60vh] space-y-4 no-scrollbar text-indigo-950">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="p-8 overflow-y-auto max-h-[60vh] space-y-4 no-scrollbar text-indigo-950 font-black">
+              <div className="grid grid-cols-2 gap-2 font-black">
                  <button onClick={() => { setBorrowFilterYear(selectedMemberDetail.year || 1); setIsBorrowModalOpen(true); }} className="flex-1 py-4 bg-indigo-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-lg transition-transform active:scale-95 font-black"><Plus className="inline mr-1" size={14}/> PINJAM BARU</button>
                  {selectedMemberDetail.type === 'Murid' && <button onClick={() => setIsPrintFormOpen(true)} className="flex-1 py-4 bg-emerald-600 text-white rounded-2xl text-[9px] font-black uppercase shadow-lg transition-transform active:scale-95 font-black"><FileText className="inline mr-1" size={14}/> CETAK BORANG</button>}
               </div>
-              <div className="border-t pt-4">
+              <div className="border-t pt-4 font-black">
                 <h4 className="text-[10px] font-black uppercase italic text-indigo-950 mb-4 font-black">Pinjaman Aktif</h4>
-                <div className="space-y-2">
+                <div className="space-y-2 font-black">
                   {getActiveLoans(selectedMemberDetail.name).map(loan => (
                     <div key={loan.id} className="p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl flex items-center justify-between font-black">
-                      <p className="font-black text-indigo-950 text-[10px] uppercase truncate flex-1 pr-4">{loan.bookTitle}</p>
-                      <div className="flex gap-2">
-                        <button onClick={() => handleAction(loan.bookId, 'Pemulangan', selectedMemberDetail.name, selectedMemberDetail.type)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-black text-[8px] uppercase">PULANG</button>
-                        <button onClick={() => handleAction(loan.bookId, 'Pulang Rosak/Hilang', selectedMemberDetail.name, selectedMemberDetail.type)} className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition-all"><AlertTriangle size={16}/></button>
+                      <p className="font-black text-indigo-950 text-[10px] uppercase truncate flex-1 pr-4 font-black">{loan.bookTitle}</p>
+                      <div className="flex gap-2 font-black">
+                        <button onClick={() => handleAction(loan.bookId, 'Pemulangan', selectedMemberDetail.name, selectedMemberDetail.type)} className="px-4 py-2 bg-emerald-600 text-white rounded-lg font-black text-[8px] uppercase font-black">PULANG</button>
+                        <button onClick={() => handleAction(loan.bookId, 'Pulang Rosak/Hilang', selectedMemberDetail.name, selectedMemberDetail.type)} className="p-2 text-rose-500 bg-rose-50 rounded-lg hover:bg-rose-500 hover:text-white transition-all font-black"><AlertTriangle size={16}/></button>
                       </div>
                     </div>
                   ))}
@@ -1227,7 +1300,7 @@ const App: React.FC = () => {
               </div>
             </div>
             <div className="p-6 bg-slate-50 border-t flex justify-between items-center font-black">
-              <button onClick={() => { if(confirm("Padam ahli?")) { setMembers(prev => prev.filter(m => m.id !== selectedMemberDetail.id)); setIsMemberDetailOpen(false); }}} className="text-rose-600 text-[9px] font-black uppercase flex items-center gap-2 hover:text-rose-800"><Trash2 size={16}/> PADAM AHLI</button>
+              <button onClick={() => { if(confirm("Padam ahli?")) { setMembers(prev => prev.filter(m => m.id !== selectedMemberDetail.id)); setIsMemberDetailOpen(false); }}} className="text-rose-600 text-[9px] font-black uppercase flex items-center gap-2 hover:text-rose-800 font-black"><Trash2 size={16}/> PADAM AHLI</button>
               <button onClick={() => setIsMemberDetailOpen(false)} className="px-6 py-3 bg-white border rounded-xl text-[9px] font-black uppercase text-indigo-950 shadow-sm font-black">TUTUP</button>
             </div>
           </div>
@@ -1237,30 +1310,30 @@ const App: React.FC = () => {
       {/* --- MODALS DAFTAR/EDIT BUKU --- */}
       {(isAddingBook || isEditingBook) && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4 no-print font-black">
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200">
-            <h3 className="text-xl font-black uppercase italic mb-8">Data Inventori Buku</h3>
-            <div className="space-y-6 text-indigo-950">
-              <div>
-                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">KOD BUKU (BT/BA)</label>
+          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200 font-black">
+            <h3 className="text-xl font-black uppercase italic mb-8 font-black">Data Inventori Buku</h3>
+            <div className="space-y-6 text-indigo-950 font-black">
+              <div className="font-black">
+                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">KOD BUKU (BT/BA)</label>
                 <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600 text-indigo-950 font-black" value={isAddingBook ? newBook.code : bookToEdit?.code} onChange={e => isAddingBook ? setNewBook({...newBook, code: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, code: e.target.value.toUpperCase()})} />
               </div>
-              <div>
-                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1">JUDUL BUKU PENUH</label>
+              <div className="font-black">
+                <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">JUDUL BUKU PENUH</label>
                 <input type="text" className="w-full p-4 border-2 rounded-xl font-black uppercase text-[11px] bg-slate-50 outline-none focus:border-indigo-600 text-indigo-950 font-black" value={isAddingBook ? newBook.title : bookToEdit?.title} onChange={e => isAddingBook ? setNewBook({...newBook, title: e.target.value.toUpperCase()}) : setBookToEdit({...bookToEdit!, title: e.target.value.toUpperCase()})} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+              <div className="grid grid-cols-2 gap-4 font-black">
+                <div className="font-black">
                   <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">TAHUN</label>
-                  <select className="w-full p-4 border-2 rounded-xl font-black text-[11px] bg-slate-50 outline-none text-indigo-950" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y}>TAHUN {y}</option>)}</select>
+                  <select className="w-full p-4 border-2 rounded-xl font-black text-[11px] bg-slate-50 outline-none text-indigo-950 font-black" value={isAddingBook ? newBook.year : bookToEdit?.year} onChange={e => isAddingBook ? setNewBook({...newBook, year: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, year: Number(e.target.value)})}>{YEARS.map(y => <option key={y} value={y} className="font-black">TAHUN {y}</option>)}</select>
                 </div>
-                <div>
+                <div className="font-black">
                   <label className="text-[9px] font-black uppercase text-emerald-700 mb-1 block ml-1 font-black">HARGA (RM)</label>
-                  <input type="number" step="0.01" className="w-full p-4 border-2 border-emerald-200 rounded-xl font-black text-[11px] bg-emerald-50 text-indigo-950 outline-none" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
+                  <input type="number" step="0.01" className="w-full p-4 border-2 border-emerald-200 rounded-xl font-black text-[11px] bg-emerald-50 text-indigo-950 outline-none font-black" value={isAddingBook ? newBook.price : bookToEdit?.price} onChange={e => isAddingBook ? setNewBook({...newBook, price: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, price: Number(e.target.value)})} />
                 </div>
               </div>
-              <div>
+              <div className="font-black">
                 <label className="text-[9px] font-black uppercase text-blue-700 mb-1 block ml-1 font-black">JUMLAH STOK (UNIT)</label>
-                <input type="number" className="w-full p-4 border-2 border-blue-200 rounded-xl font-black text-[11px] bg-blue-50 text-indigo-950 outline-none focus:border-blue-600" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
+                <input type="number" className="w-full p-4 border-2 border-blue-200 rounded-xl font-black text-[11px] bg-blue-50 text-indigo-950 outline-none focus:border-blue-600 font-black" value={isAddingBook ? newBook.stock : bookToEdit?.stock} onChange={e => isAddingBook ? setNewBook({...newBook, stock: Number(e.target.value)}) : setBookToEdit({...bookToEdit!, stock: Number(e.target.value)})} />
               </div>
               <button onClick={isAddingBook ? handleAddNewBook : handleUpdateBook} className="w-full py-5 bg-indigo-600 text-white rounded-2xl uppercase font-black shadow-xl tracking-widest transition-transform active:scale-95 font-black">SIMPAN DATA BUKU</button>
               <button onClick={() => { setIsAddingBook(false); setIsEditingBook(false); }} className="w-full py-2 text-slate-500 uppercase text-[9px] font-black">BATAL</button>
@@ -1271,32 +1344,32 @@ const App: React.FC = () => {
 
       {isAddingMember && (
         <div className="fixed inset-0 bg-indigo-950/80 backdrop-blur-md z-[300] flex items-center justify-center p-4 font-black">
-          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200">
-            <h3 className="text-xl font-black uppercase italic mb-8">Pendaftaran Ahli Baru</h3>
-            <div className="space-y-6 text-indigo-950">
-              <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
+          <div className="bg-white w-full max-w-md rounded-[3rem] p-10 border-b-[15px] border-indigo-600 shadow-2xl text-indigo-950 animate-in zoom-in duration-200 font-black">
+            <h3 className="text-xl font-black uppercase italic mb-8 font-black">Pendaftaran Ahli Baru</h3>
+            <div className="space-y-6 text-indigo-950 font-black">
+              <div className="flex gap-1 p-1 bg-slate-100 rounded-xl font-black">
                 {['Guru', 'Murid'].map(t => (
-                  <button key={t} onClick={() => setNewMember({...newMember, type: t as UserType})} className={`flex-1 py-3 rounded-lg font-black text-[9px] uppercase transition-all ${newMember.type === t ? 'bg-indigo-600 text-white shadow-md font-black' : 'text-slate-600'}`}>{t}</button>
+                  <button key={t} onClick={() => setNewMember({...newMember, type: t as UserType})} className={`flex-1 py-3 rounded-lg font-black text-[9px] uppercase transition-all ${newMember.type === t ? 'bg-indigo-600 text-white shadow-md font-black' : 'text-slate-600 font-black'}`}>{t}</button>
                 ))}
               </div>
-              <div>
+              <div className="font-black">
                 <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">NAMA PENUH</label>
                 <input type="text" className="w-full px-5 py-4 rounded-xl border-2 font-black uppercase text-[11px] bg-slate-50 outline-none text-indigo-950 font-black" value={newMember.name} onChange={e => setNewMember({...newMember, name: e.target.value.toUpperCase()})} />
               </div>
               {newMember.type === 'Murid' && (
-                <div className="space-y-4">
-                  <div>
+                <div className="space-y-4 font-black">
+                  <div className="font-black">
                     <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">TAHUN</label>
-                    <div className="flex gap-2">
-                      {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y, className: ''})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[11px] ${newMember.year === y ? 'bg-indigo-600 text-white font-black' : 'bg-slate-50 text-slate-600'}`}>{y}</button>)}
+                    <div className="flex gap-2 font-black">
+                      {YEARS.map(y => <button key={y} onClick={() => setNewMember({...newMember, year: y, className: ''})} className={`flex-1 py-3 rounded-xl border-2 font-black text-[11px] font-black ${newMember.year === y ? 'bg-indigo-600 text-white font-black' : 'bg-slate-50 text-slate-600 font-black'}`}>{y}</button>)}
                     </div>
                   </div>
                   {classesConfig[newMember.year || 1].length > 0 && (
-                    <div>
+                    <div className="font-black">
                       <label className="text-[9px] font-black uppercase text-indigo-700 mb-1 block ml-1 font-black">PILIH KELAS</label>
                       <select className="w-full p-4 border-2 rounded-xl font-black text-[11px] bg-slate-50 outline-none uppercase text-indigo-950 font-black" value={newMember.className} onChange={e => setNewMember({...newMember, className: e.target.value})}>
-                        <option value="">- PILIH KELAS -</option>
-                        {classesConfig[newMember.year || 1].map(c => <option key={c} value={c}>{c}</option>)}
+                        <option value="" className="font-black">- PILIH KELAS -</option>
+                        {classesConfig[newMember.year || 1].map(c => <option key={c} value={c} className="font-black">{c}</option>)}
                       </select>
                     </div>
                   )}
@@ -1311,17 +1384,17 @@ const App: React.FC = () => {
 
       {isBorrowModalOpen && selectedMemberDetail && (
         <div className="fixed inset-0 bg-indigo-950/95 backdrop-blur-xl z-[300] flex items-center justify-center p-4 no-print font-black">
-          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl flex flex-col border-b-[15px] border-indigo-600 text-indigo-950 animate-in zoom-in duration-300">
-            <div className="p-8 border-b flex justify-between items-center">
-              <div>
-                 <h3 className="text-xl font-black uppercase italic">Pilihan Buku Pinjaman</h3>
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-2xl flex flex-col border-b-[15px] border-indigo-600 text-indigo-950 animate-in zoom-in duration-300 font-black">
+            <div className="p-8 border-b flex justify-between items-center font-black">
+              <div className="font-black">
+                 <h3 className="text-xl font-black uppercase italic font-black">Pilihan Buku Pinjaman</h3>
                  <p className="text-[10px] font-black text-indigo-600 mt-1 uppercase italic font-black">{selectedMemberDetail.name}</p>
               </div>
               <button onClick={() => {setIsBorrowModalOpen(false); setSelectedBooksToBorrow(new Set());}} className="text-slate-300 hover:text-rose-500 transition-all font-black"><X size={28}/></button>
             </div>
-            <div className="px-8 pt-6">
-              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                {YEARS.map(y => <button key={y} onClick={() => setBorrowFilterYear(y)} className={`min-w-[70px] py-2.5 rounded-lg font-black text-[10px] border-2 uppercase transition-all ${borrowFilterYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md font-black' : 'bg-slate-50 text-slate-600'}`}>TAHUN {y}</button>)}
+            <div className="px-8 pt-6 font-black">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 font-black">
+                {YEARS.map(y => <button key={y} onClick={() => setBorrowFilterYear(y)} className={`min-w-[70px] py-2.5 rounded-lg font-black text-[10px] border-2 uppercase transition-all font-black ${borrowFilterYear === y ? 'bg-indigo-600 text-white border-indigo-700 shadow-md font-black' : 'bg-slate-50 text-slate-600 font-black'}`}>TAHUN {y}</button>)}
               </div>
             </div>
             <div className="p-8 pt-4 overflow-y-auto max-h-[45vh] grid grid-cols-1 md:grid-cols-2 gap-3 no-scrollbar text-indigo-950 font-black">
@@ -1329,9 +1402,9 @@ const App: React.FC = () => {
                 const isSelected = selectedBooksToBorrow.has(book.id);
                 const isAlreadyBorrowed = getActiveLoans(selectedMemberDetail.name).some(l => l.bookId === book.id);
                 return (
-                  <div key={book.id} onClick={isAlreadyBorrowed ? undefined : () => { const s = new Set(selectedBooksToBorrow); s.has(book.id) ? s.delete(book.id) : s.add(book.id); setSelectedBooksToBorrow(s); }} className={`p-4 rounded-xl border-2 transition-all flex justify-between items-center ${isAlreadyBorrowed ? 'bg-slate-100 opacity-60' : isSelected ? 'bg-indigo-600 text-white shadow-md' : 'bg-white hover:border-indigo-300 cursor-pointer font-black'}`}>
-                    <div className="overflow-hidden flex-1 text-indigo-950 font-black"><h4 className={`font-black text-[10px] uppercase truncate ${isSelected ? 'text-white' : 'text-indigo-950'}`}>{book.title}</h4><p className={`text-[8px] uppercase mt-1 ${isSelected ? 'text-white/70' : 'text-slate-600 font-black'}`}>{book.code} • {isAlreadyBorrowed ? 'SUDAH PINJAM' : `STOK: ${book.stock}`}</p></div>
-                    {isSelected && <CheckCircle size={16} className="text-white"/>}{isAlreadyBorrowed && <Lock size={14}/>}
+                  <div key={book.id} onClick={isAlreadyBorrowed ? undefined : () => { const s = new Set(selectedBooksToBorrow); s.has(book.id) ? s.delete(book.id) : s.add(book.id); setSelectedBooksToBorrow(s); }} className={`p-4 rounded-xl border-2 transition-all flex justify-between items-center font-black ${isAlreadyBorrowed ? 'bg-slate-100 opacity-60 font-black' : isSelected ? 'bg-indigo-600 text-white shadow-md font-black' : 'bg-white hover:border-indigo-300 cursor-pointer font-black'}`}>
+                    <div className="overflow-hidden flex-1 text-indigo-950 font-black"><h4 className={`font-black text-[10px] uppercase truncate font-black ${isSelected ? 'text-white font-black' : 'text-indigo-950 font-black'}`}>{book.title}</h4><p className={`text-[8px] uppercase mt-1 font-black ${isSelected ? 'text-white/70 font-black' : 'text-slate-600 font-black'}`}>{book.code} • {isAlreadyBorrowed ? 'SUDAH PINJAM' : `STOK: ${book.stock}`}</p></div>
+                    {isSelected && <CheckCircle size={16} className="text-white font-black"/>}{isAlreadyBorrowed && <Lock size={14} className="font-black"/>}
                   </div>
                 );
               })}
